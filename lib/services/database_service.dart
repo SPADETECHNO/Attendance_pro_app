@@ -1,4 +1,3 @@
-import 'package:attendance_pro_app/screens/admin/create_session_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:attendance_pro_app/models/user_model.dart';
 import 'package:attendance_pro_app/models/institute_model.dart';
@@ -8,6 +7,20 @@ import 'package:attendance_pro_app/models/department_model.dart';
 import 'package:attendance_pro_app/models/academic_year_model.dart';
 import 'package:attendance_pro_app/constants/app_constants.dart';
 import 'package:attendance_pro_app/utils/helpers.dart';
+
+class ParticipantValidationResult {
+  final List<String> validUsers;
+  final List<String> invalidUsers;
+  
+  ParticipantValidationResult({
+    required this.validUsers,
+    required this.invalidUsers,
+  });
+  
+  int get validCount => validUsers.length;
+  int get invalidCount => invalidUsers.length;
+  bool get hasInvalidUsers => invalidUsers.isNotEmpty;
+}
 
 class DatabaseService {
   final SupabaseClient _client = Supabase.instance.client;

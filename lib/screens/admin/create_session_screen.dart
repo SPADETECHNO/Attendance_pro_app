@@ -11,20 +11,6 @@ import 'package:attendance_pro_app/models/user_model.dart';
 import 'package:attendance_pro_app/models/academic_year_model.dart';
 import 'package:attendance_pro_app/services/csv_service.dart';
 
-class ParticipantValidationResult {
-  final List<String> validUsers;
-  final List<String> invalidUsers;
-  
-  ParticipantValidationResult({
-    required this.validUsers,
-    required this.invalidUsers,
-  });
-  
-  int get validCount => validUsers.length;
-  int get invalidCount => invalidUsers.length;
-  bool get hasInvalidUsers => invalidUsers.isNotEmpty;
-}
-
 class CreateSessionScreen extends StatefulWidget {
   const CreateSessionScreen({super.key});
 
@@ -299,11 +285,11 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
       return;
     }
 
-    // Create session with participants
-    await databaseService.createSessionWithParticipants(
+    // Create session with academic year
+    final sessionId = await databaseService.createSessionWithParticipants(
       name: _nameController.text.trim(),
-      description: _descriptionController.text.trim().isEmpty
-          ? null
+      description: _descriptionController.text.trim().isEmpty 
+          ? null 
           : _descriptionController.text.trim(),
       startDateTime: startDateTime,
       endDateTime: endDateTime,
@@ -316,10 +302,9 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     );
     
     if (mounted) {
-      final participantCount = _participantValidation?.validCount ?? 0;
       AppHelpers.showSuccessToast(
-        participantCount > 0 
-            ? 'Session created with $participantCount participants!'
+        _participantValidation != null
+            ? 'Session created with ${_participantValidation!.validUsers.length} participants!'
             : 'Session created successfully!'
       );
       Navigator.pop(context);
@@ -333,7 +318,6 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     if (mounted) setState(() => _isCreating = false);
   }
 }
-
 
   @override
   Widget build(BuildContext context) {
