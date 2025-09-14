@@ -1,3 +1,4 @@
+import 'package:attendance_pro_app/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:attendance_pro_app/models/user_model.dart';
 import 'package:attendance_pro_app/models/institute_model.dart';
@@ -209,6 +210,49 @@ class DatabaseService {
     }
   }
 
+  Future createDepartmentAdmin({
+  required String name,
+  required String userId,
+  required String email,
+  String? phone,
+  required String departmentId,
+  required String instituteId,
+  required String academicYearId, // ✅ Add academic year parameter
+  required String password,
+}) async {
+  try {
+    final authService = AuthService();
+    
+    // Create auth user
+    final authResponse = await _client.auth.signUp(
+      email: email,
+      password: password,
+    );
+    
+    if (authResponse.user == null) {
+      throw Exception('Failed to create admin account');
+    }
+
+    // Create admin profile with academic year mapping
+    await _client.from(AppConstants.profilesTable).insert({
+      'id': authResponse.user!.id,
+      'user_id': userId,
+      'name': name,
+      'email': email,
+      'phone': phone,
+      'role': AppConstants.adminRole,
+      'institute_id': instituteId,
+      'department_id': departmentId,
+      'academic_year_id': academicYearId, // ✅ Map to academic year
+      'account_status': 'active',
+      'temp_password_used': false,
+    });
+  } catch (e) {
+    AppHelpers.debugError('Create department admin error: $e');
+    rethrow;
+  }
+}
+
   // ================== DEPARTMENTS ==================
 
   /// Get departments by institute
@@ -271,20 +315,18 @@ class DatabaseService {
         .eq('role', AppConstants.adminRole)
         .order('created_at');
 
-    // ✅ Debug the raw response
-    print('[DBG] Raw response type: ${response.runtimeType}');
-    print('[DBG] Raw response content: $response');
-    
-    // Check if response is actually a List
+    print('[DBG] Raw response: $response');
+    print('[DBG] Response type: ${response.runtimeType}');
+
     if (response is List) {
-      print('[DBG] Response is a List with ${response.length} items');
+      print('[DBG] Found ${response.length} department admins');
       
       final List<Map<String, dynamic>> result = [];
       for (int i = 0; i < response.length; i++) {
         final admin = response[i];
         print('[DBG] Processing admin $i: ${admin['name']} (${admin['email']})');
         
-        final Map<String, dynamic> adminData = Map<String, dynamic>.from(admin);
+        final Map<String, dynamic> adminData = Map.from(admin);
         
         if (admin['department_id'] != null) {
           try {
@@ -294,18 +336,19 @@ class DatabaseService {
                 .select('name')
                 .eq('id', admin['department_id'])
                 .single();
-            
             adminData['department_name'] = deptResponse['name'];
             print('[DBG] Found department name: ${deptResponse['name']}');
           } catch (e) {
             print('[DBG] Department lookup failed: $e');
             adminData['department_name'] = 'Unknown Department';
           }
+        } else {
+          adminData['department_name'] = 'No Department';
         }
         
         result.add(adminData);
       }
-      
+
       print('[DBG] Final result count: ${result.length}');
       return result;
     } else {
@@ -318,6 +361,61 @@ class DatabaseService {
   }
 }
 
+Future<List<Map<String, dynamic>>> getDepartmentAdminsByAcademicYear(
+  String instituteId, 
+  String academicYearId
+) async {
+  try {
+    // First try to get admins with academic_year_id filter
+    final response = await _client
+        .from(AppConstants.profilesTable)
+        .select('''
+          id,
+          name,
+          email,
+          phone,
+          department_id,
+          academic_year_id,
+          account_status,
+          temp_password_used,
+          created_at
+        ''')
+        .eq('institute_id', instituteId)
+        .eq('role', AppConstants.adminRole)
+        .eq('academic_year_id', academicYearId)
+        .order('created_at');
+
+    if (response is List && response.isNotEmpty) {
+      final List<Map<String, dynamic>> result = [];
+      for (final admin in response) {
+        final Map<String, dynamic> adminData = Map.from(admin);
+        if (admin['department_id'] != null) {
+          try {
+            final deptResponse = await _client
+                .from(AppConstants.departmentsTable)
+                .select('name')
+                .eq('id', admin['department_id'])
+                .single();
+            adminData['department_name'] = deptResponse['name'];
+          } catch (e) {
+            adminData['department_name'] = 'Unknown Department';
+          }
+        }
+        result.add(adminData);
+      }
+      return result;
+    } else {
+      // ✅ Fallback: if no admins found with academic year filter, return all admins
+      print('No admins found for academic year $academicYearId, getting all admins');
+      return await getDepartmentAdmins(instituteId);
+    }
+  } catch (e) {
+    AppHelpers.debugError('Get department admins by academic year error: $e');
+    // ✅ Fallback to getting all admins
+    return await getDepartmentAdmins(instituteId);
+  }
+}
+
 
   // ================== USERS ==================
 
@@ -326,6 +424,7 @@ class DatabaseService {
     String? instituteId,
     String? departmentId,
     String? role,
+    String? academicYearId,
   }) async {
     try {
       var query = _client.from(AppConstants.profilesTable).select();
@@ -333,17 +432,17 @@ class DatabaseService {
       if (instituteId != null) {
         query = query.eq('institute_id', instituteId);
       }
-      
       if (departmentId != null) {
         query = query.eq('department_id', departmentId);
       }
-      
       if (role != null) {
         query = query.eq('role', role);
       }
+      if (academicYearId != null) {
+        query = query.eq('academic_year_id', academicYearId);
+      }
 
       final response = await query.order('created_at', ascending: false);
-
       return (response as List)
           .map((json) => UserModel.fromJson(json))
           .toList();
@@ -459,16 +558,22 @@ Future<ParticipantValidationResult> validateParticipants({
   required List<String> userIds,
   required String instituteId,
   required String departmentId,
+  String? academicYearId,
 }) async {
   try {
     // Get existing users from master list
-    final existingUsers = await _client
+    var query = _client
         .from(AppConstants.profilesTable)
         .select('user_id')
         .eq('institute_id', instituteId)
         .eq('department_id', departmentId)
         .eq('role', AppConstants.userRole);
+
+    if (academicYearId != null) {
+      query = query.eq('academic_year_id', academicYearId);
+    }
     
+    final existingUsers = await query;
     final masterList = existingUsers.map((user) => user['user_id'] as String).toSet();
     
     final validUsers = <String>[];
@@ -635,6 +740,99 @@ Future<ParticipantValidationResult> validateParticipants({
   // ================== ACADEMIC YEARS ==================
 
   /// Get academic years
+  
+  Future<void> setCurrentAcademicYear({
+    required String instituteId,
+    required String yearId,
+  }) async {
+    try {
+      // Use a transaction-like approach to ensure atomicity
+      
+      // First, remove current flag from all years for this institute
+      await _client
+          .from(AppConstants.academicYearsTable)
+          .update({'is_current': false, 'updated_at': DateTime.now().toIso8601String()})
+          .eq('institute_id', instituteId);
+
+      // Then set the selected year as current
+      await _client
+          .from(AppConstants.academicYearsTable)
+          .update({'is_current': true, 'updated_at': DateTime.now().toIso8601String()})
+          .eq('id', yearId)
+          .eq('institute_id', instituteId); // Double check institute ownership
+
+      AppHelpers.debugLog('Successfully set academic year $yearId as current for institute $instituteId');
+    } catch (e) {
+      AppHelpers.debugError('Set current academic year error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateAcademicYear({
+  required String yearId,
+  required String yearLabel,
+  required int startYear,
+  required int endYear,
+  required DateTime startDate,
+  required DateTime endDate,
+  bool? isCurrent,
+}) async {
+  try {
+    final updates = {
+      'year_label': yearLabel,
+      'start_year': startYear,
+      'end_year': endYear,
+      'start_date': startDate.toIso8601String(),
+      'end_date': endDate.toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    if (isCurrent != null) {
+      updates['is_current'] = isCurrent;
+    }
+
+    await _client
+        .from(AppConstants.academicYearsTable)
+        .update(updates)
+        .eq('id', yearId);
+  } catch (e) {
+    AppHelpers.debugError('Update academic year error: $e');
+    rethrow;
+  }
+}
+
+/// Delete academic year (with safety checks)
+Future<void> deleteAcademicYear(String yearId) async {
+  try {
+    // Check if this year has any sessions
+    final sessionsCount = await _client
+        .from(AppConstants.sessionsTable)
+        .select()
+        .eq('academic_year_id', yearId);
+
+    if ((sessionsCount as List).isNotEmpty) {
+      throw Exception('Cannot delete academic year that has existing sessions');
+    }
+
+    // Check if this year has any admins assigned
+    final adminsCount = await _client
+        .from(AppConstants.profilesTable)
+        .select()
+        .eq('academic_year_id', yearId);
+
+    if ((adminsCount as List).isNotEmpty) {
+      throw Exception('Cannot delete academic year that has assigned admins');
+    }
+
+    await _client
+        .from(AppConstants.academicYearsTable)
+        .delete()
+        .eq('id', yearId);
+  } catch (e) {
+    AppHelpers.debugError('Delete academic year error: $e');
+    rethrow;
+  }
+}
   Future<List<AcademicYearModel>> getAcademicYears(String instituteId) async {
     try {
       final response = await _client
@@ -736,6 +934,20 @@ Future<ParticipantValidationResult> validateParticipants({
     }
   }
 
+  Future<int> getSessionCountByDepartmentAndYear(String departmentId, String academicYearId) async {
+    try {
+      final response = await _client
+          .from(AppConstants.sessionsTable)
+          .select()
+          .eq('department_id', departmentId)
+          .eq('academic_year_id', academicYearId);
+      return (response as List).length;
+    } catch (e) {
+      AppHelpers.debugError('Get session count by department and year error: $e');
+      return 0;
+    }
+}
+
   /// Get session count by department
   Future<int> getSessionCountByDepartment(String departmentId) async {
     try {
@@ -743,7 +955,6 @@ Future<ParticipantValidationResult> validateParticipants({
           .from(AppConstants.sessionsTable)
           .select()
           .eq('department_id', departmentId);
-
       return (response as List).length;
     } catch (e) {
       AppHelpers.debugError('Get session count error: $e');

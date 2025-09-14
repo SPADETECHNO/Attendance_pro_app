@@ -289,6 +289,7 @@ class AuthService {
     String? phone,
     required String instituteId,
     String? departmentId,
+    String? academicYearId,
   }) async {
     try {
       final currentSession = _client.auth.currentSession;
@@ -313,6 +314,7 @@ class AuthService {
         departmentId: departmentId,
         customUserId: userId,
         isAdminCreated: true,
+        academicYearId: academicYearId,
       );
 
       if (currentSession != null && currentSession.refreshToken != null) {
@@ -348,6 +350,7 @@ class AuthService {
     String? departmentId,
     String? customUserId,
     bool isAdminCreated = false,
+    String? academicYearId,
   }) async {
 
     bool tempPasswordUsed = true;
@@ -364,6 +367,7 @@ class AuthService {
       'role': role,
       'institute_id': instituteId,
       'department_id': departmentId,
+      'academic_year_id': academicYearId, 
       'account_status': AppConstants.activeStatus,
       'temp_password_used': tempPasswordUsed,
     });

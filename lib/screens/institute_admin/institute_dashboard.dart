@@ -1,3 +1,5 @@
+import 'package:attendance_pro_app/models/academic_year_model.dart';
+import 'package:attendance_pro_app/screens/institute_admin/manage_academic_years_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:attendance_pro_app/services/auth_service.dart';
@@ -27,12 +29,15 @@ class _InstituteDashboardState extends State<InstituteDashboard> {
   InstituteModel? _institute;
   List<DepartmentModel> _departments = [];
   List<Map<String, dynamic>> _instituteAdmins = [];
+  List<AcademicYearModel> _academicYears = [];
+  AcademicYearModel? _selectedAcademicYear;
   
   bool _isLoading = true;
   int _totalDepartments = 0;
   int _totalAdmins = 0;
   int _totalUsers = 0;
   int _activeSessions = 0;
+  int _totalAcademicYears = 0;
 
   @override
   void initState() {
@@ -40,59 +45,160 @@ class _InstituteDashboardState extends State<InstituteDashboard> {
     _loadDashboardData();
   }
 
-  Future _loadDashboardData() async {
+  Future<void> _loadDashboardData() async {
     try {
       final authService = context.read<AuthService>();
       final databaseService = context.read<DatabaseService>();
       
-      // Get current user
       final user = await authService.getCurrentUserProfile();
       if (user == null || user.instituteId == null) {
         _navigateToLogin();
         return;
       }
 
-      // Get institute data
       final institute = await databaseService.getInstituteById(user.instituteId!);
       if (institute == null) {
         _navigateToLogin();
         return;
       }
 
+      // ✅ Load academic years FIRST
+      final academicYears = await databaseService.getAcademicYears(user.instituteId!);
+      final currentYear = academicYears.isNotEmpty
+          ? academicYears.firstWhere((year) => year.isCurrent, orElse: () => academicYears.first)
+          : null;
+
       // Get departments
       final departments = await databaseService.getDepartmentsByInstitute(user.instituteId!);
-      
-      final departmentAdmins = await databaseService.getDepartmentAdmins(user.instituteId!);
-      
+
+      // ✅ Get department admins - try both filtered and unfiltered approaches
+      List<Map<String, dynamic>> departmentAdmins;
+      try {
+        if (currentYear != null) {
+          // Try to get admins filtered by academic year
+          departmentAdmins = await databaseService.getDepartmentAdminsByAcademicYear(
+            user.instituteId!, 
+            currentYear.id
+          );
+          
+          // ✅ If no admins found with academic year filter, get all admins
+          if (departmentAdmins.isEmpty) {
+            print('No admins found for current year, getting all admins...');
+            departmentAdmins = await databaseService.getDepartmentAdmins(user.instituteId!);
+          }
+        } else {
+          departmentAdmins = await databaseService.getDepartmentAdmins(user.instituteId!);
+        }
+      } catch (e) {
+        print('Error getting filtered admins, falling back to all admins: $e');
+        departmentAdmins = await databaseService.getDepartmentAdmins(user.instituteId!);
+      }
+
       final instituteAdmins = await databaseService.getInstituteAdmins(user.instituteId!);
-      
-      // Get total users count
-      final users = await databaseService.getUsers(instituteId: user.instituteId!);
+
+      // Get users count for current year
+      final users = await databaseService.getUsers(
+        instituteId: user.instituteId!,
+        academicYearId: currentYear?.id,
+      );
       final userCount = users.where((u) => u.role == 'user').length;
 
-      // Get active sessions count (estimate)
+      // ✅ Get sessions count for current year - FIXED
       int activeSessionCount = 0;
-      for (final dept in departments) {
-        final sessionCount = await databaseService.getSessionCountByDepartment(dept.id);
-        activeSessionCount += sessionCount;
+      if (currentYear != null) {
+        try {
+          for (final dept in departments) {
+            final sessionCount = await databaseService.getSessionCountByDepartmentAndYear(
+              dept.id, 
+              currentYear.id
+            );
+            activeSessionCount += sessionCount; // ✅ Now both are int
+          }
+        } catch (e) {
+          print('Error getting session count by year: $e');
+          // Fallback to get all sessions for departments
+          try {
+            for (final dept in departments) {
+              final sessionCount = await databaseService.getSessionCountByDepartment(dept.id);
+              activeSessionCount += sessionCount; // ✅ Now both are int
+            }
+          } catch (fallbackError) {
+            print('Error in fallback session count: $fallbackError');
+            activeSessionCount = 0; // Set to 0 if both fail
+          }
+        }
+      } else {
+        // No current year, get all sessions
+        try {
+          for (final dept in departments) {
+            final sessionCount = await databaseService.getSessionCountByDepartment(dept.id);
+            activeSessionCount += sessionCount;
+          }
+        } catch (e) {
+          print('Error getting all session counts: $e');
+          activeSessionCount = 0;
+        }
       }
 
       setState(() {
         _currentUser = user;
         _institute = institute;
+        _academicYears = academicYears;
+        _selectedAcademicYear = currentYear;
         _departments = departments;
         _instituteAdmins = instituteAdmins.take(5).toList();
         _totalDepartments = departments.length;
-        _totalAdmins = departmentAdmins.length;
+        _totalAcademicYears = academicYears.length;
+        _totalAdmins = departmentAdmins.length; // ✅ This should now update correctly
         _totalUsers = userCount;
         _activeSessions = activeSessionCount;
         _isLoading = false;
       });
+
+      // ✅ Debug logging
+      AppHelpers.debugLog('Dashboard loaded successfully:');
+      AppHelpers.debugLog('- Academic Years: ${academicYears.length}');
+      AppHelpers.debugLog('- Departments: ${departments.length}');
+      AppHelpers.debugLog('- Department Admins: ${departmentAdmins.length}');
+      AppHelpers.debugLog('- Institute Admins: ${instituteAdmins.length}');
+      AppHelpers.debugLog('- Users: $userCount');
+      AppHelpers.debugLog('- Sessions: $activeSessionCount');
+      AppHelpers.debugLog('- Current Year: ${currentYear?.yearLabel}');
+
     } catch (e) {
       AppHelpers.debugError('Load institute dashboard error: $e');
       AppHelpers.showErrorToast('Failed to load dashboard');
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _onAcademicYearChanged(AcademicYearModel? year) async {
+    if (year == null || year == _selectedAcademicYear) return;
+    
+    try {
+      final databaseService = context.read<DatabaseService>();
+      
+      // Update the current year in database
+      await databaseService.setCurrentAcademicYear(
+        instituteId: _currentUser!.instituteId!,
+        yearId: year.id,
+      );
+      
+      AppHelpers.showSuccessToast('${year.yearLabel} set as current year');
+      
+      // Reload all data for the new year
+      setState(() => _isLoading = true);
+      await _loadDashboardData();
+    } catch (e) {
+      AppHelpers.showErrorToast('Failed to set current year');
+    }
+  }
+
+  void _navigateToManageAcademicYears() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ManageAcademicYearsScreen()),
+    ).then((_) => _loadDashboardData());
   }
 
   void _navigateToLogin() {
@@ -318,9 +424,113 @@ class _InstituteDashboardState extends State<InstituteDashboard> {
 
               const SizedBox(height: AppSizes.xl),
 
+              if (_academicYears.isNotEmpty) ...[
+                const SizedBox(height: AppSizes.lg),
+                Container(
+                  padding: const EdgeInsets.all(AppSizes.md),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                    border: Border.all(
+                        color: theme.colorScheme.outline.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.school, color: AppColors.primary),
+                      const SizedBox(width: AppSizes.sm),
+                      Text(
+                        'Academic Year:',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: AppSizes.md),
+                      Expanded(
+                        child: DropdownButtonFormField<AcademicYearModel>(
+                          value: _selectedAcademicYear,
+                          isExpanded: true, // ✅ This prevents overflow
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: AppSizes.sm,
+                              vertical: AppSizes.xs,
+                            ),
+                            isDense: true,
+                          ),
+                          items: _academicYears.map((year) {
+                            return DropdownMenuItem(
+                              value: year,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min, // ✅ Prevent row expansion
+                                children: [
+                                  Flexible( // ✅ Allow text to wrap/truncate
+                                    child: Text(
+                                      year.displayLabel,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis, // ✅ Handle long text
+                                    ),
+                                  ),
+                                  if (year.isCurrent) ...[
+                                    const SizedBox(width: AppSizes.xs),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.success,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'CURRENT',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: _onAcademicYearChanged,
+                        ),
+                      ),
+                      const SizedBox(width: AppSizes.sm), // ✅ Add spacing before icon
+                      IconButton(
+                        onPressed: _navigateToManageAcademicYears,
+                        icon: const Icon(Icons.settings, color: AppColors.primary),
+                        tooltip: 'Manage Academic Years',
+                        iconSize: 20, // ✅ Slightly smaller icon
+                        padding: const EdgeInsets.all(8), // ✅ Reduce padding
+                        constraints: const BoxConstraints(minWidth: 40, minHeight: 40), // ✅ Control button size
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+
+              const SizedBox(height: AppSizes.xl),
+
               // Stats Overview
               Row(
                 children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'Academic Years',
+                      value: '$_totalAcademicYears',
+                      icon: Icons.school,
+                      color: AppColors.primary,
+                      theme: theme,
+                    ),
+                  ),
+                  const SizedBox(width: AppSizes.md),
                   Expanded(
                     child: _buildStatCard(
                       title: 'Departments',
@@ -388,6 +598,14 @@ class _InstituteDashboardState extends State<InstituteDashboard> {
                 crossAxisSpacing: AppSizes.md,
                 childAspectRatio: 1.5,
                 children: [
+                  _buildActionCard(
+                    title: 'Academic Years',
+                    subtitle: 'Manage yearly sessions',
+                    icon: Icons.school,
+                    color: AppColors.primary,
+                    onTap: _navigateToManageAcademicYears,
+                    theme: theme,
+                  ),
                   _buildActionCard(
                     title: 'Manage Departments',
                     subtitle: 'Create & assign admins',

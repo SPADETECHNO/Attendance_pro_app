@@ -120,11 +120,22 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
       return;
     }
 
+    final databaseService = context.read<DatabaseService>();
+    final academicYears = await databaseService.getAcademicYears(_currentUser!.instituteId!);
+    final currentYear = academicYears.isNotEmpty
+        ? academicYears.firstWhere((year) => year.isCurrent, orElse: () => academicYears.first)
+        : null;
+
+    if (currentYear == null) {
+      AppHelpers.showWarningToast('No current academic year set. Please create one first.');
+      return;
+    }
+
     final confirmed = await AppHelpers.showConfirmDialog(
       context,
       title: 'Upload Users',
       message: 'Are you sure you want to upload ${_validationResult!.validRows} users? '
-               'Temporary passwords will be generated and should be shared with users.',
+          'They will be assigned to academic year: ${currentYear.displayLabel}',
     );
 
     if (!confirmed) return;
@@ -154,6 +165,7 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
                   : userData['phone'],
               instituteId: _currentUser!.instituteId!,
               departmentId: _selectedDepartment!.id,
+              academicYearId: currentYear.id,
             );
             successCount++;
           } catch (e) {

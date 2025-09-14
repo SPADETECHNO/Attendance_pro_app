@@ -1,3 +1,4 @@
+import 'package:attendance_pro_app/models/academic_year_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -1228,11 +1229,14 @@ class _CreateAdminDialogState extends State<CreateAdminDialog> {
   bool _isLoading = false;
   bool _useTempPassword = true;
   bool _obscurePassword = true;
+  List<AcademicYearModel> _academicYears = [];
+  AcademicYearModel? _selectedAcademicYear;
 
   @override
   void initState() {
     super.initState();
     _selectedDepartment = widget.selectedDepartment;
+    _loadAcademicYears();
   }
 
   @override
@@ -1243,6 +1247,22 @@ class _CreateAdminDialogState extends State<CreateAdminDialog> {
     _userIdController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadAcademicYears() async {
+    try {
+      final databaseService = context.read<DatabaseService>();
+      final academicYears = await databaseService.getAcademicYears(widget.instituteId);
+      
+      setState(() {
+        _academicYears = academicYears;
+        _selectedAcademicYear = academicYears.isNotEmpty
+            ? academicYears.firstWhere((year) => year.isCurrent, orElse: () => academicYears.first)
+            : null;
+      });
+    } catch (e) {
+      AppHelpers.debugError('Load academic years for admin error: $e');
+    }
   }
 
   String _getGeneratedPassword() {
@@ -1279,6 +1299,7 @@ class _CreateAdminDialogState extends State<CreateAdminDialog> {
             : _phoneController.text.trim(),
         instituteId: widget.instituteId,
         departmentId: _selectedDepartment!.id,
+        academicYearId: _selectedAcademicYear?.id,
       );
 
       AppHelpers.showSuccessToast('Admin created successfully!');
@@ -1474,6 +1495,50 @@ class _CreateAdminDialogState extends State<CreateAdminDialog> {
                         keyboardType: TextInputType.phone,
                         validator: AppHelpers.validatePhone,
                         prefixIcon: Icons.phone,
+                      ),
+
+                      const SizedBox(height: AppSizes.md),
+
+                      DropdownButtonFormField<AcademicYearModel>(
+                        value: _selectedAcademicYear,
+                        decoration: const InputDecoration(
+                          labelText: 'Academic Year',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.school),
+                        ),
+                        items: _academicYears.map((year) {
+                          return DropdownMenuItem(
+                            value: year,
+                            child: Row(
+                              children: [
+                                Text(year.displayLabel),
+                                if (year.isCurrent) ...[
+                                  const SizedBox(width: AppSizes.xs),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.success,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'CURRENT',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (year) => setState(() => _selectedAcademicYear = year),
+                        validator: (value) {
+                          if (value == null) return 'Please select an academic year';
+                          return null;
+                        },
                       ),
 
                       const SizedBox(height: AppSizes.md),

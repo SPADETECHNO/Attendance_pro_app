@@ -161,34 +161,37 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     }
   }
 
-  Future<void> _validateParticipants() async {
+  Future _validateParticipants() async {
     if (_selectedParticipantsFile == null || _currentUser == null) return;
-
+    
     try {
       final databaseService = context.read<DatabaseService>();
+      
+      // Parse CSV to get user IDs
+      final participantData = CsvService.parseParticipantCsv(_selectedParticipantsFile!.content);
+      final userIds = participantData.map((row) => row['user_id'] as String).toList();
 
-      // Parse CSV - expect simple format: user_id
-      final csvData =
-          CsvService.parseParticipantsCsv(_selectedParticipantsFile!.content);
-
-      // Validate against master list (existing users in this institute/department)
+      // ✅ Validate against master list (students from current academic year)
       final validation = await databaseService.validateParticipants(
-        userIds: csvData.map((row) => row['user_id'] as String).toList(),
+        userIds: userIds,
         instituteId: _currentUser!.instituteId!,
         departmentId: _currentUser!.departmentId!,
+        academicYearId: _selectedAcademicYear?.id, // ✅ Filter by current academic year
       );
 
-      setState(() => _participantValidation = validation);
+      setState(() {
+        // _participantUserIds = userIds;
+        _participantValidation = validation;
+      });
 
+      if (validation.validUsers.isNotEmpty) {
+        AppHelpers.showSuccessToast('${validation.validUsers.length} valid participants found');
+      }
       if (validation.invalidUsers.isNotEmpty) {
-        AppHelpers.showWarningToast(
-            '${validation.invalidUsers.length} users not found in master list');
-      } else {
-        AppHelpers.showSuccessToast(
-            '${validation.validUsers.length} participants validated successfully');
+        AppHelpers.showWarningToast('${validation.invalidUsers.length} participants not found in current academic year student database');
       }
     } catch (e) {
-      AppHelpers.showErrorToast('Validation failed: $e');
+      AppHelpers.showErrorToast('Failed to validate participants: ${e.toString()}');
     }
   }
 

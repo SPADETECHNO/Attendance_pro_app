@@ -49,6 +49,15 @@ class CsvService {
     }
   }
 
+  /// Parse participant CSV (simple user_id format)
+  static List<Map<String, dynamic>> parseParticipantCsv(String csvContent) {
+    return parseCsvContent(
+      csvContent,
+      expectedHeaders: ['user_id'],
+      hasHeaderRow: true,
+    );
+  }
+
   /// Parse CSV content to list of maps
   static List<Map<String, dynamic>> parseCsvContent(
     String csvContent, {
