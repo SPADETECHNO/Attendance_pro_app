@@ -5,6 +5,9 @@ import 'package:attendance_pro_app/utils/helpers.dart';
 
 class AuthService {
   final SupabaseClient _client = Supabase.instance.client;
+  
+  // Fixed: Use getter instead of property
+  SupabaseClient get client => _client;
 
   /// Sign up a new user with email and password
   Future<void> signUp({
@@ -88,7 +91,6 @@ class AuthService {
         print('❌ No current user found');
         return null;
       }
-
       print('✅ Current user exists: ${user.email}');
       print('Fetching profile for ID: ${user.id}');
 
@@ -105,11 +107,8 @@ class AuthService {
       print('❌ Get user profile error: $e');
       print('❌ Error type: ${e.runtimeType}');
       
-      // Don't silently return null - this hides the real problem
       AppHelpers.debugError('Get user profile error: $e');
-      
-      // For debugging, rethrow to see the actual error
-      rethrow; // This will show you the real problem!
+      rethrow;
     }
   }
 
@@ -148,7 +147,7 @@ class AuthService {
 
       // Re-authenticate with current password
       await signIn(email: user.email!, password: currentPassword);
-
+      
       // Update to new password
       await updatePassword(newPassword);
     } catch (e) {
@@ -214,7 +213,7 @@ class AuthService {
         'email': email,
         'phone': phone,
         'role': AppConstants.instituteAdminRole,
-        'institute_id': instituteId, // ✅ THIS IS THE KEY FIX
+        'institute_id': instituteId,
         'account_status': 'active',
         'temp_password_used': false,
       });
@@ -228,7 +227,6 @@ class AuthService {
           .eq('id', instituteId);
 
       AppHelpers.debugLog('Institute admin registration completed successfully');
-
     } catch (e) {
       AppHelpers.debugError('Register institute admin error: $e');
       rethrow;
@@ -273,7 +271,6 @@ class AuthService {
         'account_status': 'active',
         'temp_password_used': false,
       });
-
     } catch (e) {
       AppHelpers.debugError('Create institute admin error: $e');
       rethrow;
@@ -339,6 +336,185 @@ class AuthService {
   /// Listen to auth state changes
   Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 
+  /// Send invitation email with temporary password
+  Future<void> sendInvitationEmail({
+    required String email,
+    required String temporaryPassword,
+    required String userName,
+    required String instituteName,
+    required String role,
+  }) async {
+    try {
+      final user = currentUser;
+      if (user == null) throw Exception('No authenticated user');
+
+      final response = await _client.functions.invoke(
+        'send-invitation-email',
+        body: {
+          'email': email,
+          'temporaryPassword': temporaryPassword,
+          'userName': userName,
+          'instituteName': instituteName,
+          'role': role,
+          'createdBy': user.id,
+        },
+        headers: {
+          'Authorization': 'Bearer ${_client.auth.currentSession?.accessToken}',
+        },
+      );
+
+      if (response.status != 200) {
+        throw Exception('Failed to send invitation email');
+      }
+
+      AppHelpers.debugLog('Invitation email sent successfully');
+    } catch (e) {
+      AppHelpers.debugError('Send invitation email error: $e');
+      rethrow;
+    }
+  }
+
+  /// Send forgot password email
+  Future<void> sendForgotPasswordEmail(String email) async {
+    try {
+      final response = await _client.functions.invoke(
+        'send-forgot-password-email',
+        body: {'email': email},
+      );
+
+      if (response.status != 200) {
+        throw Exception('Failed to send password reset email');
+      }
+
+      AppHelpers.debugLog('Password reset email sent successfully');
+    } catch (e) {
+      AppHelpers.debugError('Send forgot password email error: $e');
+      rethrow;
+    }
+  }
+
+  /// Reset password using token - FIXED VERSION
+  Future<void> resetPasswordWithToken({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      // Verify token and get user
+      final tokenResponse = await _client
+          .from('password_reset_tokens')
+          .select('user_id, expires_at, used')
+          .eq('token', token)
+          .eq('used', false)
+          .single();
+
+      final tokenData = tokenResponse;
+      final expiresAt = DateTime.parse(tokenData['expires_at']);
+      
+      if (DateTime.now().isAfter(expiresAt)) {
+        throw Exception('Reset token has expired');
+      }
+
+      final userId = tokenData['user_id'];
+
+      // FIXED: Use AdminUserAttributes instead of UserAttributes
+      final authResponse = await _client.auth.admin.updateUserById(
+        userId,
+        attributes: AdminUserAttributes(
+          password: newPassword, // This is the correct way
+        ),
+      );
+
+      if (authResponse.user == null) {
+        throw Exception('Failed to update password');
+      }
+
+      // Mark token as used
+      await _client
+          .from('password_reset_tokens')
+          .update({'used': true})
+          .eq('token', token);
+
+      // Fixed column name: temp_password_used instead of temppasswordused
+      await _client
+          .from(AppConstants.profilesTable)
+          .update({'temp_password_used': false})
+          .eq('id', userId);
+
+    } catch (e) {
+      AppHelpers.debugError('Reset password with token error: $e');
+      rethrow;
+    }
+  }
+
+  /// Enhanced user creation with email invitation
+  Future<void> createUserAccountWithInvitation({
+    required String email,
+    required String userId,
+    required String name,
+    required String role,
+    String? phone,
+    required String instituteId,
+    String? departmentId,
+    String? academicYearId,
+  }) async {
+    try {
+      // Get current session for restoration
+      final currentSession = _client.auth.currentSession;
+      
+      // Generate temp password
+      final tempPassword = AppConstants.generateTempPassword(userId);
+      
+      // Create auth user
+      final authResponse = await _client.auth.signUp(
+        email: email,
+        password: tempPassword,
+      );
+
+      if (authResponse.user == null) {
+        throw Exception('User creation failed');
+      }
+
+      // Create profile - FIXED: Use the correct method name
+      await _createUserProfile(
+        userId: authResponse.user!.id,
+        email: email,
+        name: name,
+        phone: phone,
+        role: role,
+        instituteId: instituteId,
+        departmentId: departmentId,
+        customUserId: userId,
+        isAdminCreated: true,
+        academicYearId: academicYearId,
+      );
+
+      // Get institute info for email
+      final institute = await _client
+          .from(AppConstants.institutesTable)
+          .select('name')
+          .eq('id', instituteId)
+          .single();
+
+      // Send invitation email
+      await sendInvitationEmail(
+        email: email,
+        temporaryPassword: tempPassword,
+        userName: name,
+        instituteName: institute['name'] ?? 'Institute',
+        role: role,
+      );
+
+      // Restore current session
+      if (currentSession?.refreshToken != null) {
+        await _client.auth.setSession(currentSession!.refreshToken!);
+      }
+
+    } catch (e) {
+      AppHelpers.debugError('Create user account with invitation error: $e');
+      rethrow;
+    }
+  }
+
   /// Private helper to create user profile
   Future<void> _createUserProfile({
     required String userId,
@@ -352,11 +528,10 @@ class AuthService {
     bool isAdminCreated = false,
     String? academicYearId,
   }) async {
-
     bool tempPasswordUsed = true;
-      if (role == AppConstants.userRole && isAdminCreated) {
-        tempPasswordUsed = false; 
-      }
+    if (role == AppConstants.userRole && isAdminCreated) {
+      tempPasswordUsed = false; 
+    }
 
     await _client.from(AppConstants.profilesTable).insert({
       'id': userId,

@@ -1289,7 +1289,7 @@ class _CreateAdminDialogState extends State<CreateAdminDialog> {
       final authService = context.read<AuthService>();
       final password = _getGeneratedPassword();
 
-      await authService.createUserAccount(
+      await authService.createUserAccountWithInvitation(
         email: _emailController.text.trim(),
         userId: _userIdController.text.trim(),
         name: _nameController.text.trim(),

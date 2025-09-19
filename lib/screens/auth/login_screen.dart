@@ -55,6 +55,128 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isSubmitting = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                Icons.lock_reset,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: AppSizes.sm),
+              const Text('Forgot Password?'),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Enter your email address and we\'ll send you a secure link to reset your password.',
+                  style: TextStyle(height: 1.4),
+                ),
+                const SizedBox(height: AppSizes.lg),
+                CustomTextField(
+                  label: 'Email Address',
+                  hint: 'Enter your registered email',
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  prefixIcon: Icons.email_outlined,
+                  validator: AppHelpers.validateEmail,
+                  enabled: !isSubmitting,
+                ),
+                const SizedBox(height: AppSizes.sm),
+                Container(
+                  padding: const EdgeInsets.all(AppSizes.sm),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: AppSizes.iconSm,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: AppSizes.xs),
+                      Expanded(
+                        child: Text(
+                          'The reset link will expire in 15 minutes for security.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      if (formKey.currentState?.validate() ?? false) {
+                        setDialogState(() => isSubmitting = true);
+                        
+                        try {
+                          final authService = context.read<AuthService>();
+                          await authService.sendForgotPasswordEmail(
+                            emailController.text.trim(),
+                          );
+                          
+                          if (context.mounted) {
+                            Navigator.pop(context, true);
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            AppHelpers.showErrorToast(
+                              'Failed to send reset email. Please try again.',
+                            );
+                            setDialogState(() => isSubmitting = false);
+                          }
+                        }
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Send Reset Link'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    emailController.dispose();
+
+    if (result == true && mounted) {
+      AppHelpers.showSuccessToast(
+        'Password reset link sent! Please check your email and spam folder.',
+      );
+    }
+  }
+
   void _navigateToRegister() {
     Navigator.push(
       context,
@@ -153,10 +275,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {
-                      // TODO: Implement forgot password
-                      AppHelpers.showInfoToast('Forgot password feature coming soon');
-                    },
+                    onPressed: _isLoading ? null : _showForgotPasswordDialog,
                     child: Text(
                       AppStrings.forgotPassword,
                       style: TextStyle(

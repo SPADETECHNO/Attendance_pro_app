@@ -155,7 +155,7 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
         
         for (final userData in batch) {
           try {
-            await authService.createUserAccount(
+            await authService.createUserAccountWithInvitation(
               email: userData['email'],
               userId: userData['user_id'],
               name: userData['name'],
