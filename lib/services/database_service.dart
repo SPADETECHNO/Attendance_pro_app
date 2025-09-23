@@ -508,51 +508,151 @@ Future<List<Map<String, dynamic>>> getDepartmentAdminsByAcademicYear(
   }
 
   Future<String> createSessionWithParticipants({
-  required String name,
-  String? description,
-  required DateTime startDateTime,
-  required DateTime endDateTime,
-  required String academicYear,
-  String? semester,
-  required String departmentId,
-  required String createdBy,
-  bool gpsValidationEnabled = true,
-  List<String>? participantUserIds,
-}) async {
-  try {
-    // Create session
-    final sessionResponse = await _client.from(AppConstants.sessionsTable).insert({
-      'name': name,
-      'description': description,
-      'start_datetime': startDateTime.toIso8601String(),
-      'end_datetime': endDateTime.toIso8601String(),
-      'session_date': DateTime(startDateTime.year, startDateTime.month, startDateTime.day).toIso8601String(),
-      'academic_year': academicYear,
-      'semester': semester,
-      'department_id': departmentId,
-      'created_by': createdBy,
-      'gps_validation_enabled': gpsValidationEnabled,
-      'is_active': true,
-    }).select('id').single();
-    
-    final sessionId = sessionResponse['id'] as String;
-    
-    // Add participants if provided
-    if (participantUserIds != null && participantUserIds.isNotEmpty) {
-      final participantRecords = participantUserIds.map((userId) => {
-        'session_id': sessionId,
-        'user_id': userId,
-      }).toList();
-      
-      await _client.from(AppConstants.sessionParticipantsTable).insert(participantRecords);
+    required String name,
+    String? description,
+    required DateTime startDateTime,
+    required DateTime endDateTime,
+    required String? academicYearId,
+    required String departmentId,
+    required String createdBy,
+    bool gpsValidationEnabled = true,
+    List<String>? participantUserIds,
+  }) async {
+    try {
+      // Create session
+      final sessionResponse = await _client
+          .from(AppConstants.sessionsTable)
+          .insert({
+            'name': name,
+            'description': description,
+            'start_datetime': startDateTime.toIso8601String(),
+            'end_datetime': endDateTime.toIso8601String(),
+            'session_date': DateTime(
+                    startDateTime.year, startDateTime.month, startDateTime.day)
+                .toIso8601String(),
+            'academic_year_id': academicYearId,
+            'department_id': departmentId,
+            'created_by': createdBy,
+            'gps_validation_enabled': gpsValidationEnabled,
+            'is_active': true,
+          })
+          .select('id')
+          .single();
+
+      final sessionId = sessionResponse['id'] as String;
+
+      // Add participants if provided - FIXED: Convert user_id to profile.id
+      if (participantUserIds != null && participantUserIds.isNotEmpty) {
+        // Get profile UUIDs for the given user_ids
+        final profilesResponse = await _client
+            .from(AppConstants.profilesTable)
+            .select('id, user_id')
+            .inFilter('user_id', participantUserIds);
+
+        if (profilesResponse.isEmpty) {
+          throw Exception('No valid users found for the provided user IDs');
+        }
+
+        // Create participant records using profile.id (UUID) instead of user_id (string)
+        final participantRecords = profilesResponse
+            .map((profile) => {
+                  'session_id': sessionId,
+                  'user_id': profile[
+                      'id'], // Use profile.id (UUID), not user_id (string)
+                })
+            .toList();
+
+        await _client
+            .from(AppConstants.sessionParticipantsTable)
+            .insert(participantRecords);
+
+        // Log for debugging
+        AppHelpers.debugLog(
+            'Added ${participantRecords.length} participants to session $sessionId');
+      }
+
+      return sessionId;
+    } catch (e) {
+      AppHelpers.debugError('Create session with participants error: $e');
+      rethrow;
     }
-    
-    return sessionId;
-  } catch (e) {
-    AppHelpers.debugError('Create session with participants error: $e');
-    rethrow;
   }
-}
+  /// Convert student user_id to profile UUID
+  Future<String> getUserProfileId(String userId) async {
+    try {
+      final response = await _client
+          .from(AppConstants.profilesTable)
+          .select('id')
+          .eq('user_id', userId)
+          .single();
+      return response['id'] as String;
+    } catch (e) {
+      throw Exception('User not found: $userId');
+    }
+  }
+
+  /// Convert multiple user_ids to profile UUIDs
+  Future<List<String>> getUserProfileIds(List<String> userIds) async {
+    try {
+      final response = await _client
+          .from(AppConstants.profilesTable)
+          .select('id')
+          .inFilter('user_id', userIds);
+      return response.map((profile) => profile['id'] as String).toList();
+    } catch (e) {
+      throw Exception('Failed to resolve user profiles: $e');
+    }
+  }
+
+
+//   Future<String> createSessionWithParticipants({
+//   required String name,
+//   String? description,
+//   required DateTime startDateTime,
+//   required DateTime endDateTime,
+//   // required String academicYear,
+//   required String? academicYearId,
+//   // String? semester,
+//   required String departmentId,
+//   required String createdBy,
+//   bool gpsValidationEnabled = true,
+//   List<String>? participantUserIds,
+// }) async {
+//   try {
+//     // Create session
+//     final sessionResponse = await _client.from(AppConstants.sessionsTable).insert({
+//       'name': name,
+//       'description': description,
+//       'start_datetime': startDateTime.toIso8601String(),
+//       'end_datetime': endDateTime.toIso8601String(),
+//       'session_date': DateTime(startDateTime.year, startDateTime.month, startDateTime.day).toIso8601String(),
+//       // 'academic_year': academicYear,
+//       'academic_year_id': academicYearId,
+//       // 'semester': semester,
+//       'department_id': departmentId,
+//       'created_by': createdBy,
+//       'gps_validation_enabled': gpsValidationEnabled,
+//       'is_active': true,
+//     }).select('id').single();
+    
+//     final sessionId = sessionResponse['id'] as String;
+    
+//     // Add participants if provided
+//     if (participantUserIds != null && participantUserIds.isNotEmpty) {
+//       final participantRecords = participantUserIds.map((userId) => {
+//         'session_id': sessionId,
+//         'user_id': userId,
+//       }).toList();
+      
+//       await _client.from(AppConstants.sessionParticipantsTable).insert(participantRecords);
+//     }
+    
+//     return sessionId;
+//   } catch (e) {
+//     AppHelpers.debugError('Create session with participants error: $e');
+//     rethrow;
+//   }
+// }
 
 Future<ParticipantValidationResult> validateParticipants({
   required List<String> userIds,
@@ -685,9 +785,12 @@ Future<ParticipantValidationResult> validateParticipants({
     int? distanceFromInstitute,
   }) async {
     try {
+
+      final profileId = await getUserProfileId(userId);
+
       await _client.from(AppConstants.attendanceTable).upsert({
         'session_id': sessionId,
-        'user_id': userId,
+        'user_id': profileId,
         'marked_by': markedBy,
         'marked_by_user': markedByUser,
         'marked_by_admin': markedByAdmin,
