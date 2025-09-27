@@ -1,3 +1,4 @@
+import 'package:attendance_pro_app/models/institute_master_list_model.dart';
 import 'package:attendance_pro_app/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:attendance_pro_app/models/user_model.dart';
@@ -252,6 +253,235 @@ class DatabaseService {
     rethrow;
   }
 }
+
+// ================== INSTITUTE MASTER LIST ==================
+
+/// Get institute master list
+Future<List<InstituteMasterListModel>> getInstituteMasterList(String instituteId) async {
+  try {
+    final response = await _client
+        .from('institute_master_list')
+        .select()
+        .eq('institute_id', instituteId)
+        .order('created_at', ascending: false);
+
+    return (response as List)
+        .map((json) => InstituteMasterListModel.fromJson(json))
+        .toList();
+  } catch (e) {
+    AppHelpers.debugError('Get institute master list error: $e');
+    rethrow;
+  }
+}
+
+/// Add user to institute master list
+Future<void> addToInstituteMasterList({
+  required String userId,
+  required String name,
+  required String email,
+  String? phone,
+  required String instituteId,
+  String? departmentId,
+  String? academicYearId,
+  required String createdBy,
+  bool sendEmailInvitation = true,
+}) async {
+  try {
+    // Check if user ID already exists in this institute
+    final existing = await _client
+        .from('institute_master_list')
+        .select('id')
+        .eq('institute_id', instituteId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    if (existing != null) {
+      throw Exception('User ID already exists in this institute');
+    }
+
+    // Check if email already exists in this institute
+    final existingEmail = await _client
+        .from('institute_master_list')
+        .select('id')
+        .eq('institute_id', instituteId)
+        .eq('email', email)
+        .maybeSingle();
+
+    if (existingEmail != null) {
+      throw Exception('Email already exists in this institute');
+    }
+
+    // Add to master list first
+    await _client.from('institute_master_list').insert({
+      'user_id': userId,
+      'name': name,
+      'email': email,
+      'phone': phone,
+      'role': 'user', // Always 'user' for master list
+      'institute_id': instituteId,
+      'department_id': departmentId,
+      'academic_year_id': academicYearId,
+      'account_status': 'active',
+      'temp_password_used': !sendEmailInvitation,
+      'created_by': createdBy,
+    });
+
+    // Create profile using existing auth service method
+    if (sendEmailInvitation) {
+      try {
+        final authService = AuthService();
+        // Use existing method with email invitation
+        await authService.createUserAccountWithInvitation(
+          email: email,
+          userId: userId,
+          name: name,
+          role: 'user', // Always 'user'
+          phone: phone,
+          instituteId: instituteId,
+          departmentId: departmentId,
+          academicYearId: academicYearId,
+        );
+      } catch (authError) {
+        AppHelpers.debugError('Auth creation failed but user added to master list: $authError');
+      }
+    } else {
+      try {
+        final authService = AuthService();
+        // Use existing method without email invitation
+        await authService.createUserAccount(
+          email: email,
+          userId: userId,
+          name: name,
+          role: 'user', // Always 'user'
+          phone: phone,
+          instituteId: instituteId,
+          departmentId: departmentId,
+          academicYearId: academicYearId,
+        );
+      } catch (authError) {
+        AppHelpers.debugError('Auth creation failed but user added to master list: $authError');
+      }
+    }
+  } catch (e) {
+    AppHelpers.debugError('Add to institute master list error: $e');
+    rethrow;
+  }
+}
+
+/// Search master list by user ID
+Future<InstituteMasterListModel?> searchInstituteMasterListByUserId(
+  String instituteId,
+  String userId,
+) async {
+  try {
+    final response = await _client
+        .from('institute_master_list')
+        .select()
+        .eq('institute_id', instituteId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    if (response == null) return null;
+    return InstituteMasterListModel.fromJson(response);
+  } catch (e) {
+    AppHelpers.debugError('Search master list by user ID error: $e');
+    rethrow;
+  }
+}
+
+/// Update master list user
+Future<void> updateInstituteMasterListUser({
+  required String id,
+  required String name,
+  required String email,
+  String? phone,
+  String? departmentId,
+  String? academicYearId,
+}) async {
+  try {
+    await _client
+        .from('institute_master_list')
+        .update({
+          'name': name,
+          'email': email,
+          'phone': phone,
+          'department_id': departmentId,
+          'academic_year_id': academicYearId,
+          'updated_at': DateTime.now().toIso8601String(),
+          // Note: role is not updated as it's always 'user'
+        })
+        .eq('id', id);
+  } catch (e) {
+    AppHelpers.debugError('Update master list user error: $e');
+    rethrow;
+  }
+}
+
+
+/// Delete from master list
+Future<void> deleteFromInstituteMasterList(String id) async {
+  try {
+    await _client
+        .from('institute_master_list')
+        .delete()
+        .eq('id', id);
+  } catch (e) {
+    AppHelpers.debugError('Delete from master list error: $e');
+    rethrow;
+  }
+}
+
+/// Bulk add to master list from CSV
+Future<void> bulkAddToInstituteMasterList(
+  List<Map<String, dynamic>> users,
+  String instituteId,
+  String createdBy,
+  bool sendEmailInvitations,
+) async {
+  try {
+    // First, add all to master list
+    final records = users.map((user) => {
+      'user_id': user['user_id'],
+      'name': user['name'],
+      'email': user['email'],
+      'phone': user['phone'],
+      'role': 'user', // Always 'user'
+      'institute_id': instituteId,
+      'department_id': user['department_id'],
+      'academic_year_id': user['academic_year_id'],
+      'account_status': 'active',
+      'temp_password_used': !sendEmailInvitations,
+      'created_by': createdBy,
+    }).toList();
+
+    await _client.from('institute_master_list').insert(records);
+
+    // Then create profiles using existing auth service
+    if (sendEmailInvitations) {
+      final authService = AuthService();
+      for (final user in users) {
+        try {
+          await authService.createUserAccountWithInvitation(
+            email: user['email'],
+            userId: user['user_id'],
+            name: user['name'],
+            role: 'user',
+            phone: user['phone'],
+            instituteId: instituteId,
+            departmentId: user['department_id'],
+            academicYearId: user['academic_year_id'],
+          );
+        } catch (authError) {
+          AppHelpers.debugError('Auth creation failed for user ${user['user_id']}: $authError');
+        }
+      }
+    }
+  } catch (e) {
+    AppHelpers.debugError('Bulk add to master list error: $e');
+    rethrow;
+  }
+}
+
 
   // ================== DEPARTMENTS ==================
 

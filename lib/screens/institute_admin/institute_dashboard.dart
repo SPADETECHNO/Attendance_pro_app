@@ -1,5 +1,6 @@
 import 'package:attendance_pro_app/models/academic_year_model.dart';
 import 'package:attendance_pro_app/screens/institute_admin/manage_academic_years_screen.dart';
+import 'package:attendance_pro_app/screens/institute_admin/manage_master_list_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:attendance_pro_app/services/auth_service.dart';
@@ -241,6 +242,14 @@ class _InstituteDashboardState extends State<InstituteDashboard> {
       ),
     );
   }
+
+  void _navigateToMasterList() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ManageMasterListScreen()),
+    ).then((_) => _loadDashboardData());
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -620,6 +629,14 @@ class _InstituteDashboardState extends State<InstituteDashboard> {
                     icon: Icons.upload_file,
                     color: AppColors.success,
                     onTap: _navigateToUploadCsv,
+                    theme: theme,
+                  ),
+                  _buildActionCard(
+                    title: 'Master List',
+                    subtitle: 'Manage institute users',
+                    icon: Icons.people,
+                    color: AppColors.primary,
+                    onTap: _navigateToMasterList,
                     theme: theme,
                   ),
                   _buildActionCard(

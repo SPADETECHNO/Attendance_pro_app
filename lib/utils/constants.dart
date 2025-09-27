@@ -268,6 +268,7 @@ class AppStrings {
   static const String users = 'Users';
   static const String reports = 'Reports';
   static const String analytics = 'Analytics';
+  static const String instituteMasterListTable = 'institute_master_list';
   
   // Error Messages
   static const String errorGeneric = 'Something went wrong. Please try again.';

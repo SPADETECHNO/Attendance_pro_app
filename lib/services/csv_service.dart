@@ -49,6 +49,115 @@ class CsvService {
     }
   }
 
+  /// Parse CSV for institute master list
+    static List<Map<String, dynamic>> parseInstituteMasterListCsv(String csvContent) {
+      try {
+        final converter = const CsvToListConverter();
+        final csvData = converter.convert(csvContent);
+        
+        if (csvData.isEmpty) throw CsvException('CSV file is empty');
+
+        final headers = csvData[0].map((e) => e.toString().toLowerCase().trim()).toList();
+        final requiredHeaders = ['user_id', 'name', 'email'];
+
+        // Validate required headers
+        for (final header in requiredHeaders) {
+          if (!headers.contains(header)) {
+            throw CsvException('Missing required header: $header');
+          }
+        }
+
+        final data = <Map<String, dynamic>>[];
+        for (int i = 1; i < csvData.length; i++) {
+          final row = csvData[i];
+          if (row.isEmpty) continue;
+
+          final rowData = <String, dynamic>{};
+          for (int j = 0; j < headers.length && j < row.length; j++) {
+            rowData[headers[j]] = row[j].toString().trim();
+          }
+          rowData['_row_number'] = i + 1;
+          data.add(rowData);
+        }
+
+        return data;
+      } catch (e) {
+        throw CsvException('Failed to parse CSV: ${e.toString()}');
+      }
+    }
+
+    /// Validate institute master list data
+    static CsvValidationResult validateInstituteMasterListData(List<Map<String, dynamic>> data) {
+      final errors = <String>[];
+      final warnings = <String>[];
+      final userIds = <String>{};
+      final emails = <String>{};
+
+      for (final row in data) {
+        final rowNum = row['_row_number'] ?? 'Unknown';
+        
+        // Validate user_id
+        final userId = row['user_id']?.toString().trim();
+        if (userId == null || userId.isEmpty) {
+          errors.add('Row $rowNum: User ID is required');
+        } else if (userIds.contains(userId)) {
+          errors.add('Row $rowNum: Duplicate User ID "$userId"');
+        } else {
+          userIds.add(userId);
+          if (userId.length < 3) {
+            warnings.add('Row $rowNum: User ID "$userId" is very short');
+          }
+        }
+
+        // Validate name
+        final name = row['name']?.toString().trim();
+        if (name == null || name.isEmpty) {
+          errors.add('Row $rowNum: Name is required');
+        }
+
+        // Validate email
+        final email = row['email']?.toString().trim();
+        if (email == null || email.isEmpty) {
+          errors.add('Row $rowNum: Email is required');
+        } else if (emails.contains(email)) {
+          errors.add('Row $rowNum: Duplicate email "$email"');
+        } else {
+          emails.add(email);
+          final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+          if (!emailRegex.hasMatch(email)) {
+            errors.add('Row $rowNum: Invalid email format "$email"');
+          }
+        }
+
+        // Validate phone (optional)
+        final phone = row['phone']?.toString().trim();
+        if (phone != null && phone.isNotEmpty) {
+          final phoneRegex = RegExp(r'^\+?[\d\s\-\(\)]+$');
+          if (!phoneRegex.hasMatch(phone) || phone.length < 10) {
+            warnings.add('Row $rowNum: Phone number "$phone" may be invalid');
+          }
+        }
+      }
+
+      return CsvValidationResult(
+        totalRows: data.length,
+        validRows: data.length - errors.where((e) => !e.contains('Warning')).length,
+        errors: errors,
+        warnings: warnings,
+        isValid: errors.isEmpty,
+      );
+    }
+
+    /// Generate sample CSV for institute master list
+    static String generateSampleInstituteMasterListCsv() {
+      return '''user_id,name,email,phone,department_id,academic_year_id
+    STU001,John Doe,john.doe@email.com,+1234567890,,
+    STU002,Jane Smith,jane.smith@email.com,+1234567891,dept-uuid-here,year-uuid-here
+    STU003,Bob Johnson,bob.johnson@email.com,,dept-uuid-here,
+    STU004,Alice Brown,alice.brown@email.com,+1234567893,,year-uuid-here
+    STU005,Mike Wilson,mike.wilson@email.com,+1234567894,,''';
+    }
+
   /// Parse participant CSV (simple user_id format)
   static List<Map<String, dynamic>> parseParticipantCsv(String csvContent) {
     return parseCsvContent(

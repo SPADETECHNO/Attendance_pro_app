@@ -199,7 +199,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Welcome back, ${_currentUser?.name?.split(' ').first ?? 'Admin'}!',
+                      'Welcome back, ${_currentUser?.name.split(' ').first ?? 'Admin'}!',
                       style: theme.textTheme.headlineSmall?.copyWith(
                         color: theme.colorScheme.onPrimary,
                         fontWeight: FontWeight.bold,

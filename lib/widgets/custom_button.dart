@@ -85,7 +85,7 @@ class CustomButton extends StatelessWidget {
             foregroundColor: finalTextColor,
             backgroundColor: finalBackgroundColor,
             minimumSize: Size(
-              width ?? (mainAxisSize == MainAxisSize.min ? 0 : double.infinity),
+              width ?? (mainAxisSize == MainAxisSize.min ? 0 : 0),
               height ?? AppSizes.buttonHeightMd,
             ),
             shape: RoundedRectangleBorder(
