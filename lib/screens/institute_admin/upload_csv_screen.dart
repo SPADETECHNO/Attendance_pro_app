@@ -22,14 +22,15 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
   UserModel? _currentUser;
   List<DepartmentModel> _departments = [];
   DepartmentModel? _selectedDepartment;
-  
   CsvFileResult? _selectedFile;
   List<Map<String, dynamic>> _csvData = [];
   CsvValidationResult? _validationResult;
-  
   bool _isLoading = true;
   bool _isProcessing = false;
   bool _showValidationResults = false;
+  
+  // New toggle state for email invitation
+  bool _sendEmailInvitations = true;
 
   @override
   void initState() {
@@ -41,12 +42,10 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
     try {
       final authService = context.read<AuthService>();
       final databaseService = context.read<DatabaseService>();
-
       final user = await authService.getCurrentUserProfile();
       if (user == null || user.instituteId == null) return;
 
       final departments = await databaseService.getDepartmentsByInstitute(user.instituteId!);
-
       setState(() {
         _currentUser = user;
         _departments = departments;
@@ -82,11 +81,9 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
     if (_selectedFile == null) return;
 
     setState(() => _isProcessing = true);
-
     try {
       // Parse CSV content
       final data = CsvService.parseUsersCsv(_selectedFile!.content);
-      
       // Validate data
       final validation = CsvService.validateUsersData(data);
 
@@ -131,20 +128,19 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
       return;
     }
 
+    // Updated confirmation dialog to include email option
+    final invitationMethod = _sendEmailInvitations ? 'with email invitations' : 'without email invitations';
     final confirmed = await AppHelpers.showConfirmDialog(
       context,
       title: 'Upload Users',
-      message: 'Are you sure you want to upload ${_validationResult!.validRows} users? '
+      message: 'Are you sure you want to upload ${_validationResult!.validRows} users $invitationMethod? '
           'They will be assigned to academic year: ${currentYear.displayLabel}',
     );
-
     if (!confirmed) return;
 
     setState(() => _isProcessing = true);
-
     try {
       final authService = context.read<AuthService>();
-      
       int successCount = 0;
       int errorCount = 0;
       final errors = <String>[];
@@ -155,18 +151,34 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
         
         for (final userData in batch) {
           try {
-            await authService.createUserAccountWithInvitation(
-              email: userData['email'],
-              userId: userData['user_id'],
-              name: userData['name'],
-              role: AppConstants.userRole,
-              phone: userData['phone']?.toString().trim().isEmpty == true 
-                  ? null 
-                  : userData['phone'],
-              instituteId: _currentUser!.instituteId!,
-              departmentId: _selectedDepartment!.id,
-              academicYearId: currentYear.id,
-            );
+            // Use the appropriate method based on toggle state
+            if (_sendEmailInvitations) {
+              await authService.createUserAccountWithInvitation(
+                email: userData['email'],
+                userId: userData['user_id'],
+                name: userData['name'],
+                role: AppConstants.userRole,
+                phone: userData['phone']?.toString().trim().isEmpty == true
+                    ? null
+                    : userData['phone'],
+                instituteId: _currentUser!.instituteId!,
+                departmentId: _selectedDepartment!.id,
+                academicYearId: currentYear.id,
+              );
+            } else {
+              await authService.createUserAccount(
+                email: userData['email'],
+                userId: userData['user_id'],
+                name: userData['name'],
+                role: AppConstants.userRole,
+                phone: userData['phone']?.toString().trim().isEmpty == true
+                    ? null
+                    : userData['phone'],
+                instituteId: _currentUser!.instituteId!,
+                departmentId: _selectedDepartment!.id,
+                academicYearId: currentYear.id,
+              );
+            }
             successCount++;
           } catch (e) {
             errorCount++;
@@ -185,10 +197,8 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
 
       if (errorCount == 0) {
         AppHelpers.showSuccessToast('All $successCount users uploaded successfully!');
-        
         // Show success dialog with next steps
         _showUploadSuccessDialog(successCount);
-        
         // Reset form
         setState(() {
           _selectedFile = null;
@@ -209,6 +219,18 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
   }
 
   void _showUploadSuccessDialog(int successCount) {
+    final emailInvitationText = _sendEmailInvitations 
+        ? '• Invitation emails have been sent to all users'
+        : '• Users have been created with temporary passwords';
+    
+    final nextStepsText = _sendEmailInvitations
+        ? '• Users will receive login credentials via email\n'
+          '• Users will be prompted to change passwords on first login\n'
+          '• Users can then start marking attendance'
+        : '• Share login credentials with users manually\n'
+          '• Users will be prompted to change passwords on first login\n'
+          '• Users can then start marking attendance';
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -236,12 +258,13 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
           children: [
             Text('$successCount users have been successfully uploaded.'),
             const SizedBox(height: AppSizes.md),
+            const Text('What happened:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: AppSizes.sm),
+            Text(emailInvitationText),
+            const SizedBox(height: AppSizes.md),
             const Text('Next steps:', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: AppSizes.sm),
-            const Text('• Users have been created with temporary passwords'),
-            const Text('• Share login credentials with users'),
-            const Text('• Users will be prompted to change passwords on first login'),
-            const Text('• Users can then start marking attendance'),
+            Text(nextStepsText),
           ],
         ),
         actions: [
@@ -337,6 +360,104 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
     }
   }
 
+  Widget _buildEmailToggleCard(ThemeData theme) {
+    return Card(
+      color: AppColors.primary.withAlpha((0.05 * 255).toInt()),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSizes.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.email,
+                  color: AppColors.primary,
+                  size: AppSizes.iconMd,
+                ),
+                const SizedBox(width: AppSizes.sm),
+                Text(
+                  'Email Invitations',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSizes.md),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _sendEmailInvitations 
+                            ? 'Send email invitations to users'
+                            : 'Create accounts without sending emails',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: AppSizes.xs),
+                      Text(
+                        _sendEmailInvitations
+                            ? 'Users will receive login credentials via email automatically'
+                            : 'You will need to share login credentials manually',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withAlpha((0.7 * 255).toInt()),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSizes.md),
+                Switch.adaptive(
+                  value: _sendEmailInvitations,
+                  onChanged: (value) {
+                    setState(() {
+                      _sendEmailInvitations = value;
+                    });
+                  },
+                  activeColor: AppColors.primary,
+                ),
+              ],
+            ),
+            if (!_sendEmailInvitations) ...[
+              const SizedBox(height: AppSizes.sm),
+              Container(
+                padding: const EdgeInsets.all(AppSizes.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withAlpha((0.1 * 255).toInt()),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber,
+                      color: AppColors.warning,
+                      size: AppSizes.iconSm,
+                    ),
+                    const SizedBox(width: AppSizes.xs),
+                    Expanded(
+                      child: Text(
+                        'Remember to share temporary passwords with users manually',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.warning,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -402,7 +523,10 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: AppSizes.xl),
 
+            // Email Toggle Card
+            _buildEmailToggleCard(theme),
             const SizedBox(height: AppSizes.xl),
 
             // Department Selection
@@ -422,7 +546,7 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
                   prefixIcon: Icon(Icons.domain),
                 ),
                 items: _departments.map((dept) {
-                  return DropdownMenuItem(
+                  return DropdownMenuItem<DepartmentModel>(
                     value: dept,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -457,7 +581,6 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
               ),
             ),
             const SizedBox(height: AppSizes.md),
-
             Row(
               children: [
                 Expanded(
@@ -519,10 +642,12 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
               SizedBox(
                 width: double.infinity,
                 child: CustomButton(
-                  text: 'Upload ${_validationResult!.validRows} Users',
+                  text: _sendEmailInvitations 
+                      ? 'Upload ${_validationResult!.validRows} Users (With Email)'
+                      : 'Upload ${_validationResult!.validRows} Users (No Email)',
                   onPressed: _isProcessing ? null : _uploadUsers,
                   isLoading: _isProcessing,
-                  icon: Icons.cloud_upload,
+                  icon: _sendEmailInvitations ? Icons.email : Icons.cloud_upload,
                 ),
               ),
             ],
@@ -534,7 +659,6 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
 
   Widget _buildValidationResults(ThemeData theme) {
     final result = _validationResult!;
-    
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSizes.md),
@@ -558,7 +682,6 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
               ],
             ),
             const SizedBox(height: AppSizes.md),
-            
             // Statistics
             Row(
               children: [
@@ -590,7 +713,6 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
                 ),
               ],
             ),
-
             if (result.errors.isNotEmpty) ...[
               const SizedBox(height: AppSizes.md),
               Text(
@@ -631,7 +753,6 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
                 ),
               ),
             ],
-
             if (result.warnings.isNotEmpty) ...[
               const SizedBox(height: AppSizes.md),
               Text(
