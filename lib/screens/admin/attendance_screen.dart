@@ -124,7 +124,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     _scannerController?.dispose();
     _scannerController = null;
   }
-
+  
   Future<void> _onQRScanned(BarcodeCapture capture) async {
     if (_isScanning || _selectedSession == null) return;
 
@@ -137,10 +137,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     setState(() => _isScanning = true);
 
     try {
-      // Parse QR code data
-      final qrData = jsonDecode(code);
-      final userId = qrData['user_id'] as String?;
-      final sessionId = qrData['session_id'] as String?;
+      String? userId;
+      String? sessionId;
+
+      final decoded = jsonDecode(code);
+      if (decoded is Map) {
+        userId = decoded['user_id']?.toString();
+        sessionId = decoded['session_id']?.toString();
+      } else if (decoded is String || decoded is int) {
+        // fallback: QR only has user_id
+        userId = decoded.toString();
+        sessionId = _selectedSession!.id;
+      }
 
       if (userId == null || sessionId != _selectedSession!.id) {
         AppHelpers.showErrorToast('Invalid QR code');
@@ -154,11 +162,44 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       AppHelpers.showErrorToast('Failed to process QR code');
     } finally {
       setState(() => _isScanning = false);
-      
-      // Brief pause before allowing next scan
       await Future.delayed(const Duration(seconds: 2));
     }
   }
+
+  // Future<void> _onQRScanned(BarcodeCapture capture) async {
+  //   if (_isScanning || _selectedSession == null) return;
+
+  //   final barcodes = capture.barcodes;
+  //   if (barcodes.isEmpty) return;
+
+  //   final code = barcodes.first.rawValue;
+  //   if (code == null) return;
+
+  //   setState(() => _isScanning = true);
+
+  //   try {
+  //     // Parse QR code data
+  //     final qrData = jsonDecode(code);
+  //     final userId = qrData['user_id'] as String?;
+  //     final sessionId = qrData['session_id'] as String?;
+
+  //     if (userId == null || sessionId != _selectedSession!.id) {
+  //       AppHelpers.showErrorToast('Invalid QR code');
+  //       return;
+  //     }
+
+  //     await _markAttendance(userId, 'present', isScanned: true);
+
+  //   } catch (e) {
+  //     AppHelpers.debugError('QR scan error: $e');
+  //     AppHelpers.showErrorToast('Failed to process QR code');
+  //   } finally {
+  //     setState(() => _isScanning = false);
+      
+  //     // Brief pause before allowing next scan
+  //     await Future.delayed(const Duration(seconds: 2));
+  //   }
+  // }
 
   Future<void> _markAttendance(
     String userId,
