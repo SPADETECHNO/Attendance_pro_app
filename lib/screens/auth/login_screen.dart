@@ -113,9 +113,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       Expanded(
                         child: Text(
                           'The reset link will expire in 15 minutes for security.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                         ),
                       ),
                     ],
@@ -126,7 +129,8 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: isSubmitting ? null : () => Navigator.pop(context, false),
+              onPressed:
+                  isSubmitting ? null : () => Navigator.pop(context, false),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -135,13 +139,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   : () async {
                       if (formKey.currentState?.validate() ?? false) {
                         setDialogState(() => isSubmitting = true);
-                        
+
                         try {
                           final authService = context.read<AuthService>();
                           await authService.sendForgotPasswordEmail(
                             emailController.text.trim(),
                           );
-                          
+
                           if (context.mounted) {
                             Navigator.pop(context, true);
                           }
@@ -200,13 +204,13 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(height: size.height * 0.08),
-                
+
                 // Logo Section
                 Center(
                   child: Container(
                     padding: const EdgeInsets.all(AppSizes.lg),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppSizes.radiusXl),
                     ),
                     child: Icon(
@@ -216,9 +220,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: AppSizes.xl),
-                
+
                 // Welcome Text
                 Text(
                   'Welcome Back!',
@@ -228,9 +232,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 const SizedBox(height: AppSizes.sm),
-                
+
                 Text(
                   'Sign in to continue to ${AppStrings.appName}',
                   style: theme.textTheme.bodyLarge?.copyWith(
@@ -238,9 +242,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 const SizedBox(height: AppSizes.xxxl),
-                
+
                 // Email Field
                 CustomTextField(
                   label: AppStrings.email,
@@ -250,9 +254,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   prefixIcon: Icons.email_outlined,
                   validator: AppHelpers.validateEmail,
                 ),
-                
+
                 const SizedBox(height: AppSizes.lg),
-                
+
                 // Password Field
                 CustomTextField(
                   label: AppStrings.password,
@@ -260,7 +264,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   prefixIcon: Icons.lock_outline,
-                  suffixIcon: _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                  suffixIcon: _obscurePassword
+                      ? Icons.visibility
+                      : Icons.visibility_off,
                   onSuffixIconTap: () {
                     setState(() {
                       _obscurePassword = !_obscurePassword;
@@ -268,9 +274,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                   validator: AppHelpers.validatePassword,
                 ),
-                
+
                 const SizedBox(height: AppSizes.md),
-                
+
                 // Forgot Password Link
                 Align(
                   alignment: Alignment.centerRight,
@@ -285,9 +291,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: AppSizes.xl),
-                
+
                 // Login Button
                 CustomButton(
                   text: AppStrings.login,
@@ -295,9 +301,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   isLoading: _isLoading,
                   icon: Icons.login,
                 ),
-                
+
                 const SizedBox(height: AppSizes.xl),
-                
+
                 // Divider
                 Row(
                   children: [
@@ -305,7 +311,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Divider(color: theme.colorScheme.outline),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: AppSizes.md),
                       child: Text(
                         'OR',
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -319,9 +326,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: AppSizes.xl),
-                
+
                 // Register Button
                 CustomButton(
                   text: 'Create New Account',
@@ -329,9 +336,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   isOutlined: true,
                   icon: Icons.person_add,
                 ),
-                
+
                 const SizedBox(height: AppSizes.lg),
-                
+
                 // App Info
                 Center(
                   child: Column(

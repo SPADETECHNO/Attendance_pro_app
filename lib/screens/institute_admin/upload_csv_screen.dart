@@ -131,7 +131,6 @@ class _UploadCsvScreenState extends State<UploadCsvScreen> {
               departmentId: userData['department_id']?.toString().trim().isEmpty == true ? null : userData['department_id'],
               academicYearId: userData['academic_year_id']?.toString().trim().isEmpty == true ? null : userData['academic_year_id'],
               createdBy: _currentUser!.id,
-              sendEmailInvitation: true,
             );
             successCount++;
           } catch (e) {

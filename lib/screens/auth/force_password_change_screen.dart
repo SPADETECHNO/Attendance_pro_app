@@ -16,7 +16,8 @@ class ForcePasswordChangeScreen extends StatefulWidget {
   });
 
   @override
-  State<ForcePasswordChangeScreen> createState() => _ForcePasswordChangeScreenState();
+  State<ForcePasswordChangeScreen> createState() =>
+      _ForcePasswordChangeScreenState();
 }
 
 class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
@@ -24,7 +25,7 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
@@ -45,7 +46,7 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
 
     try {
       final authService = context.read<AuthService>();
-      
+
       await authService.changePassword(
         currentPassword: _currentPasswordController.text,
         newPassword: _newPasswordController.text,
@@ -53,15 +54,15 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
 
       if (mounted) {
         AppHelpers.showSuccessToast('Password changed successfully!');
-        
+
         // Show success dialog
         AppHelpers.showInfoDialog(
           context,
           title: 'Password Updated',
           message: 'Your password has been changed successfully. '
-                  'You can now use the new password to access your account.',
+              'You can now use the new password to access your account.',
         );
-        
+
         // Navigate to splash screen to redirect to appropriate dashboard
         Navigator.pushReplacement(
           context,
@@ -79,7 +80,8 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
     final confirmed = await AppHelpers.showConfirmDialog(
       context,
       title: 'Logout',
-      message: 'Are you sure you want to logout? You will need to change your password later.',
+      message:
+          'Are you sure you want to logout? You will need to change your password later.',
       confirmText: 'Logout',
       isDestructive: true,
     );
@@ -88,7 +90,7 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
       try {
         final authService = context.read<AuthService>();
         await authService.signOut();
-        
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const SplashScreen()),
@@ -134,7 +136,7 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                 Container(
                   padding: const EdgeInsets.all(AppSizes.md),
                   decoration: BoxDecoration(
-                    color: AppColors.warning.withOpacity(0.1),
+                    color: AppColors.warning.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppSizes.radiusLg),
                     border: Border.all(
                       color: AppColors.warning.withOpacity(0.3),
@@ -165,7 +167,8 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                               'You are using a temporary password. For security reasons, '
                               'you must change your password before continuing.',
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                color: theme.colorScheme.onSurface
+                                    .withOpacity(0.8),
                               ),
                             ),
                           ],
@@ -174,9 +177,9 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: AppSizes.xl),
-                
+
                 // User Info
                 Container(
                   padding: const EdgeInsets.all(AppSizes.md),
@@ -201,7 +204,8 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                             Text(
                               'Signed in as:',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                color: theme.colorScheme.onSurface
+                                    .withOpacity(0.6),
                               ),
                             ),
                             Text(
@@ -216,9 +220,9 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: AppSizes.xl),
-                
+
                 // Current Password
                 CustomTextField(
                   label: 'Current Password',
@@ -226,17 +230,20 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                   controller: _currentPasswordController,
                   obscureText: _obscureCurrentPassword,
                   prefixIcon: Icons.lock_outline,
-                  suffixIcon: _obscureCurrentPassword ? Icons.visibility : Icons.visibility_off,
+                  suffixIcon: _obscureCurrentPassword
+                      ? Icons.visibility
+                      : Icons.visibility_off,
                   onSuffixIconTap: () {
                     setState(() {
                       _obscureCurrentPassword = !_obscureCurrentPassword;
                     });
                   },
-                  validator: (value) => AppHelpers.validateRequired(value, 'Current password'),
+                  validator: (value) =>
+                      AppHelpers.validateRequired(value, 'Current password'),
                 ),
-                
+
                 const SizedBox(height: AppSizes.lg),
-                
+
                 // New Password
                 CustomTextField(
                   label: 'New Password',
@@ -244,7 +251,9 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                   controller: _newPasswordController,
                   obscureText: _obscureNewPassword,
                   prefixIcon: Icons.lock,
-                  suffixIcon: _obscureNewPassword ? Icons.visibility : Icons.visibility_off,
+                  suffixIcon: _obscureNewPassword
+                      ? Icons.visibility
+                      : Icons.visibility_off,
                   onSuffixIconTap: () {
                     setState(() {
                       _obscureNewPassword = !_obscureNewPassword;
@@ -253,9 +262,9 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                   validator: AppHelpers.validatePassword,
                   helperText: 'Password must be at least 6 characters long',
                 ),
-                
+
                 const SizedBox(height: AppSizes.lg),
-                
+
                 // Confirm New Password
                 CustomTextField(
                   label: 'Confirm New Password',
@@ -263,7 +272,9 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
                   prefixIcon: Icons.lock_outline,
-                  suffixIcon: _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                  suffixIcon: _obscureConfirmPassword
+                      ? Icons.visibility
+                      : Icons.visibility_off,
                   onSuffixIconTap: () {
                     setState(() {
                       _obscureConfirmPassword = !_obscureConfirmPassword;
@@ -274,9 +285,9 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                     _newPasswordController.text,
                   ),
                 ),
-                
+
                 const SizedBox(height: AppSizes.xxxl),
-                
+
                 // Change Password Button
                 CustomButton(
                   text: 'Change Password',
@@ -284,14 +295,14 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                   isLoading: _isLoading,
                   icon: Icons.security,
                 ),
-                
+
                 const SizedBox(height: AppSizes.lg),
-                
+
                 // Security Tips
                 Container(
                   padding: const EdgeInsets.all(AppSizes.md),
                   decoration: BoxDecoration(
-                    color: AppColors.info.withOpacity(0.1),
+                    color: AppColors.info.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppSizes.radiusLg),
                   ),
                   child: Column(

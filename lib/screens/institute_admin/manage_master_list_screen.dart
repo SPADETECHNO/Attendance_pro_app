@@ -77,8 +77,7 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
 
         final matchesFilter = _selectedFilter == 'all' ||
             (_selectedFilter == 'active' && user.isActive) ||
-            (_selectedFilter == 'inactive' && !user.isActive) ||
-            (_selectedFilter == 'pending_password' && user.needsPasswordChange);
+            (_selectedFilter == 'inactive' && !user.isActive) ;
 
         return matchesSearch && matchesFilter;
       }).toList();
@@ -205,7 +204,7 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
               const SizedBox(width: AppSizes.sm),
               _buildFilterChip('Inactive', 'inactive', _masterList.where((u) => !u.isActive).length),
               const SizedBox(width: AppSizes.sm),
-              _buildFilterChip('Password Pending', 'pending_password', _masterList.where((u) => u.needsPasswordChange).length),
+              // _buildFilterChip('Password Pending', 'pending_password', _masterList.where((u) => u.needsPasswordChange).length),
             ],
           ),
         ),
@@ -453,26 +452,26 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
                     ),
                   ),
                 ),
-                if (user.needsPasswordChange) ...[
-                  const SizedBox(width: AppSizes.xs),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.info.withAlpha((0.1 * 255).toInt()),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Password Pending',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.info,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
+                // if (user.needsPasswordChange) ...[
+                //   const SizedBox(width: AppSizes.xs),
+                //   Container(
+                //     padding: const EdgeInsets.symmetric(
+                //       horizontal: 6,
+                //       vertical: 2,
+                //     ),
+                //     decoration: BoxDecoration(
+                //       color: AppColors.info.withAlpha((0.1 * 255).toInt()),
+                //       borderRadius: BorderRadius.circular(4),
+                //     ),
+                //     child: Text(
+                //       'Password Pending',
+                //       style: theme.textTheme.labelSmall?.copyWith(
+                //         color: AppColors.info,
+                //         fontWeight: FontWeight.w600,
+                //       ),
+                //     ),
+                //   ),
+                // ],
                 if (user.departmentId != null) ...[
                   const SizedBox(width: AppSizes.xs),
                   Container(
@@ -733,23 +732,23 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
                               ],
                             ),
                             const SizedBox(height: AppSizes.xs),
-                            Row(
-                              children: [
-                                Icon(
-                                  widget.user.needsPasswordChange ? Icons.lock_clock : Icons.lock,
-                                  color: widget.user.needsPasswordChange ? AppColors.info : AppColors.success,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: AppSizes.xs),
-                                Text(
-                                  'Password: ${widget.user.needsPasswordChange ? 'Pending Change' : 'Set'}',
-                                  style: TextStyle(
-                                    color: widget.user.needsPasswordChange ? AppColors.info : AppColors.success,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            // Row(
+                            //   children: [
+                            //     Icon(
+                            //       widget.user.needsPasswordChange ? Icons.lock_clock : Icons.lock,
+                            //       color: widget.user.needsPasswordChange ? AppColors.info : AppColors.success,
+                            //       size: 16,
+                            //     ),
+                            //     const SizedBox(width: AppSizes.xs),
+                            //     Text(
+                            //       'Password: ${widget.user.needsPasswordChange ? 'Pending Change' : 'Set'}',
+                            //       style: TextStyle(
+                            //         color: widget.user.needsPasswordChange ? AppColors.info : AppColors.success,
+                            //         fontWeight: FontWeight.w500,
+                            //       ),
+                            //     ),
+                            //   ],
+                            // ),
                             const SizedBox(height: AppSizes.xs),
                             Text(
                               'Added: ${AppHelpers.formatDate(widget.user.createdAt)}',
@@ -1116,7 +1115,6 @@ class _AddUserDialogState extends State<_AddUserDialog> {
         departmentId: _selectedDepartmentId, // Can be null
         academicYearId: _selectedAcademicYearId, // Can be null
         createdBy: widget.createdBy,
-        sendEmailInvitation: _sendEmailInvitation,
       );
 
       AppHelpers.showSuccessToast('User added to institute successfully');

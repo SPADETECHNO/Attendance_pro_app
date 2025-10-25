@@ -14,7 +14,8 @@ class ManageAcademicYearsScreen extends StatefulWidget {
   const ManageAcademicYearsScreen({super.key});
 
   @override
-  State<ManageAcademicYearsScreen> createState() => _ManageAcademicYearsScreenState();
+  State<ManageAcademicYearsScreen> createState() =>
+      _ManageAcademicYearsScreenState();
 }
 
 class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
@@ -32,11 +33,12 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
     try {
       final authService = context.read<AuthService>();
       final databaseService = context.read<DatabaseService>();
-      
+
       final user = await authService.getCurrentUserProfile();
       if (user == null || user.instituteId == null) return;
 
-      final academicYears = await databaseService.getAcademicYears(user.instituteId!);
+      final academicYears =
+          await databaseService.getAcademicYears(user.instituteId!);
 
       setState(() {
         _currentUser = user;
@@ -63,7 +65,8 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
     final confirmed = await AppHelpers.showConfirmDialog(
       context,
       title: 'Delete Academic Year',
-      message: 'Are you sure you want to delete "${year.yearLabel}"? This action cannot be undone.\n\nNote: You cannot delete years with existing sessions or assigned admins.',
+      message:
+          'Are you sure you want to delete "${year.yearLabel}"? This action cannot be undone.\n\nNote: You cannot delete years with existing sessions or assigned admins.',
       confirmText: 'Delete',
       isDestructive: true,
     );
@@ -72,11 +75,11 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
       try {
         final databaseService = context.read<DatabaseService>();
         await databaseService.deleteAcademicYear(year.id);
-        
+
         AppHelpers.showSuccessToast('Academic year deleted successfully');
         _loadAcademicYears();
       } catch (e) {
-        AppHelpers.showErrorToast(e.toString().contains('Cannot delete') 
+        AppHelpers.showErrorToast(e.toString().contains('Cannot delete')
             ? e.toString().replaceAll('Exception: ', '')
             : 'Failed to delete academic year');
       }
@@ -96,13 +99,13 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
   Future<void> _setCurrentYear(AcademicYearModel year) async {
     try {
       final databaseService = context.read<DatabaseService>();
-      
+
       // Update current year in database
       await databaseService.setCurrentAcademicYear(
         instituteId: _currentUser!.instituteId!,
         yearId: year.id,
       );
-      
+
       AppHelpers.showSuccessToast('${year.yearLabel} set as current year');
       _loadAcademicYears();
     } catch (e) {
@@ -113,7 +116,7 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     if (_isLoading) {
       return const Scaffold(
         body: LoadingWidget(message: 'Loading academic years...'),
@@ -136,7 +139,7 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
                 buttonText: 'Add Academic Year',
                 onButtonPressed: _showCreateAcademicYearDialog,
               )
-                : ListView.builder(
+            : ListView.builder(
                 padding: const EdgeInsets.all(AppSizes.md),
                 itemCount: _academicYears.length,
                 itemBuilder: (context, index) {
@@ -153,14 +156,18 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
                               Container(
                                 padding: const EdgeInsets.all(AppSizes.sm),
                                 decoration: BoxDecoration(
-                                  color: year.isCurrent 
-                                      ? AppColors.success.withOpacity(0.1)
-                                      : AppColors.primary.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                                  color: year.isCurrent
+                                      ? AppColors.success.withValues(alpha: 0.1)
+                                      : AppColors.primary
+                                          .withValues(alpha: 0.1),
+                                  borderRadius:
+                                      BorderRadius.circular(AppSizes.radiusMd),
                                 ),
                                 child: Icon(
                                   year.isCurrent ? Icons.stars : Icons.school,
-                                  color: year.isCurrent ? AppColors.success : AppColors.primary,
+                                  color: year.isCurrent
+                                      ? AppColors.success
+                                      : AppColors.primary,
                                 ),
                               ),
                               const SizedBox(width: AppSizes.md),
@@ -172,7 +179,8 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
                                       children: [
                                         Text(
                                           year.yearLabel,
-                                          style: theme.textTheme.titleMedium?.copyWith(
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
@@ -185,7 +193,9 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
                                             ),
                                             decoration: BoxDecoration(
                                               color: AppColors.success,
-                                              borderRadius: BorderRadius.circular(AppSizes.radiusRound),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      AppSizes.radiusRound),
                                             ),
                                             child: const Text(
                                               'CURRENT',
@@ -206,8 +216,10 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
                                     ),
                                     Text(
                                       'Status: ${year.status} • ${year.durationInDays} days',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onSurface
+                                            .withOpacity(0.7),
                                       ),
                                     ),
                                   ],
@@ -250,7 +262,8 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
                                         const PopupMenuItem(
                                           value: 'set_current',
                                           child: ListTile(
-                                            leading: Icon(Icons.stars, color: AppColors.success),
+                                            leading: Icon(Icons.stars,
+                                                color: AppColors.success),
                                             title: Text('Set as Current'),
                                             contentPadding: EdgeInsets.zero,
                                           ),
@@ -260,7 +273,8 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
                                       const PopupMenuItem(
                                         value: 'delete',
                                         child: ListTile(
-                                          leading: Icon(Icons.delete, color: AppColors.error),
+                                          leading: Icon(Icons.delete,
+                                              color: AppColors.error),
                                           title: Text('Delete Year'),
                                           contentPadding: EdgeInsets.zero,
                                         ),
@@ -278,21 +292,25 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'Academic Year Progress',
-                                      style: theme.textTheme.bodySmall?.copyWith(
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
                                         fontWeight: FontWeight.w600,
-                                        color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                        color: theme.colorScheme.onSurface
+                                            .withOpacity(0.8),
                                       ),
                                     ),
                                     Text(
                                       '${year.progressPercentage.toStringAsFixed(1)}%',
-                                      style: theme.textTheme.bodySmall?.copyWith(
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
                                         fontWeight: FontWeight.bold,
-                                        color: year.progressPercentage < 80 
-                                            ? AppColors.success 
+                                        color: year.progressPercentage < 80
+                                            ? AppColors.success
                                             : AppColors.warning,
                                       ),
                                     ),
@@ -303,8 +321,8 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
                                   value: year.progressPercentage / 100,
                                   backgroundColor: Colors.grey[300],
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    year.progressPercentage < 80 
-                                        ? AppColors.success 
+                                    year.progressPercentage < 80
+                                        ? AppColors.success
                                         : AppColors.warning,
                                   ),
                                 ),
@@ -312,7 +330,8 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
                                 Text(
                                   year.timeRemaining,
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.7),
                                     fontStyle: FontStyle.italic,
                                   ),
                                 ),
@@ -328,8 +347,9 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
                                 vertical: AppSizes.xs,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.info.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+                                color: AppColors.info.withValues(alpha: 0.1),
+                                borderRadius:
+                                    BorderRadius.circular(AppSizes.radiusSm),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -359,8 +379,9 @@ class _ManageAcademicYearsScreenState extends State<ManageAcademicYearsScreen> {
                                 vertical: AppSizes.xs,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+                                color: Colors.grey.withValues(alpha: 0.1),
+                                borderRadius:
+                                    BorderRadius.circular(AppSizes.radiusSm),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -553,7 +574,8 @@ class _EditAcademicYearDialogState extends State<EditAcademicYearDialog> {
                         label: 'Year Label',
                         hint: 'e.g., 2024-25',
                         controller: _yearLabelController,
-                        validator: (value) => AppHelpers.validateRequired(value, 'Year label'),
+                        validator: (value) =>
+                            AppHelpers.validateRequired(value, 'Year label'),
                         prefixIcon: Icons.label,
                       ),
                       // ... rest of the form fields (same as create dialog)
@@ -568,7 +590,9 @@ class _EditAcademicYearDialogState extends State<EditAcademicYearDialog> {
                               validator: (value) {
                                 if (value?.isEmpty == true) return 'Required';
                                 final year = int.tryParse(value!);
-                                if (year == null || year < 2020 || year > 2030) {
+                                if (year == null ||
+                                    year < 2020 ||
+                                    year > 2030) {
                                   return 'Invalid year';
                                 }
                                 return null;
@@ -585,10 +609,13 @@ class _EditAcademicYearDialogState extends State<EditAcademicYearDialog> {
                               validator: (value) {
                                 if (value?.isEmpty == true) return 'Required';
                                 final year = int.tryParse(value!);
-                                if (year == null || year < 2020 || year > 2030) {
+                                if (year == null ||
+                                    year < 2020 ||
+                                    year > 2030) {
                                   return 'Invalid year';
                                 }
-                                final startYear = int.tryParse(_startYearController.text);
+                                final startYear =
+                                    int.tryParse(_startYearController.text);
                                 if (startYear != null && year <= startYear) {
                                   return 'Must be after start year';
                                 }
@@ -640,13 +667,12 @@ class _EditAcademicYearDialogState extends State<EditAcademicYearDialog> {
                       const SizedBox(height: AppSizes.md),
                       SwitchListTile(
                         title: const Text('Set as Current Year'),
-                        subtitle: Text(
-                          _isCurrent 
-                              ? 'This is the active academic year'
-                              : 'Set as the active academic year'
-                        ),
+                        subtitle: Text(_isCurrent
+                            ? 'This is the active academic year'
+                            : 'Set as the active academic year'),
                         value: _isCurrent,
-                        onChanged: (value) => setState(() => _isCurrent = value),
+                        onChanged: (value) =>
+                            setState(() => _isCurrent = value),
                         secondary: const Icon(Icons.stars),
                       ),
                     ],
@@ -698,7 +724,8 @@ class CreateAcademicYearDialog extends StatefulWidget {
   });
 
   @override
-  State<CreateAcademicYearDialog> createState() => _CreateAcademicYearDialogState();
+  State<CreateAcademicYearDialog> createState() =>
+      _CreateAcademicYearDialogState();
 }
 
 class _CreateAcademicYearDialogState extends State<CreateAcademicYearDialog> {
@@ -832,7 +859,8 @@ class _CreateAcademicYearDialogState extends State<CreateAcademicYearDialog> {
                         label: 'Year Label',
                         hint: 'e.g., 2024-25',
                         controller: _yearLabelController,
-                        validator: (value) => AppHelpers.validateRequired(value, 'Year label'),
+                        validator: (value) =>
+                            AppHelpers.validateRequired(value, 'Year label'),
                         prefixIcon: Icons.label,
                       ),
                       const SizedBox(height: AppSizes.md),
@@ -846,7 +874,9 @@ class _CreateAcademicYearDialogState extends State<CreateAcademicYearDialog> {
                               validator: (value) {
                                 if (value?.isEmpty == true) return 'Required';
                                 final year = int.tryParse(value!);
-                                if (year == null || year < 2020 || year > 2030) {
+                                if (year == null ||
+                                    year < 2020 ||
+                                    year > 2030) {
                                   return 'Invalid year';
                                 }
                                 return null;
@@ -863,10 +893,13 @@ class _CreateAcademicYearDialogState extends State<CreateAcademicYearDialog> {
                               validator: (value) {
                                 if (value?.isEmpty == true) return 'Required';
                                 final year = int.tryParse(value!);
-                                if (year == null || year < 2020 || year > 2030) {
+                                if (year == null ||
+                                    year < 2020 ||
+                                    year > 2030) {
                                   return 'Invalid year';
                                 }
-                                final startYear = int.tryParse(_startYearController.text);
+                                final startYear =
+                                    int.tryParse(_startYearController.text);
                                 if (startYear != null && year <= startYear) {
                                   return 'Must be after start year';
                                 }
@@ -918,9 +951,11 @@ class _CreateAcademicYearDialogState extends State<CreateAcademicYearDialog> {
                       const SizedBox(height: AppSizes.md),
                       SwitchListTile(
                         title: const Text('Set as Current Year'),
-                        subtitle: const Text('This will be the active academic year'),
+                        subtitle:
+                            const Text('This will be the active academic year'),
                         value: _isCurrent,
-                        onChanged: (value) => setState(() => _isCurrent = value),
+                        onChanged: (value) =>
+                            setState(() => _isCurrent = value),
                         secondary: const Icon(Icons.stars),
                       ),
                     ],

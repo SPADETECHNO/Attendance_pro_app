@@ -1,45 +1,52 @@
-// lib/screens/admin/create_session_screen.dart
+// lib/screens/admin/edit_session_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:attendance_pro_app/services/auth_service.dart';
 import 'package:attendance_pro_app/services/database_service.dart';
+import 'package:attendance_pro_app/widgets/loading_widget.dart';
 import 'package:attendance_pro_app/widgets/custom_button.dart';
 import 'package:attendance_pro_app/widgets/custom_text_field.dart';
-import 'package:attendance_pro_app/widgets/loading_widget.dart';
-import 'package:attendance_pro_app/widgets/select_participants_widget.dart';
 import 'package:attendance_pro_app/utils/constants.dart';
 import 'package:attendance_pro_app/utils/helpers.dart';
+import 'package:attendance_pro_app/models/session_model.dart';
 import 'package:attendance_pro_app/models/user_model.dart';
-import 'package:attendance_pro_app/models/academic_year_model.dart';
 
-class CreateSessionScreen extends StatefulWidget {
-  const CreateSessionScreen({super.key});
+class EditSessionScreen extends StatefulWidget {
+  final SessionModel session;
+
+  const EditSessionScreen({
+    super.key,
+    required this.session,
+  });
 
   @override
-  State<CreateSessionScreen> createState() => _CreateSessionScreenState();
+  State<EditSessionScreen> createState() => _EditSessionScreenState();
 }
 
-class _CreateSessionScreenState extends State<CreateSessionScreen> {
+class _EditSessionScreenState extends State<EditSessionScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
+  late TextEditingController _nameController;
+  late TextEditingController _descriptionController;
 
   UserModel? _currentUser;
-  AcademicYearModel? _currentAcademicYear;
-
-  DateTime _selectedDate = DateTime.now();
-  TimeOfDay _startTime = TimeOfDay.now();
+  late DateTime _selectedDate;
+  late TimeOfDay _startTime;
   late TimeOfDay _endTime;
-  bool _gpsValidationEnabled = true;
-  bool _isLoading = true;
-  bool _isCreating = false;
+  late bool _gpsValidationEnabled;
 
-  List<Map<String, dynamic>> _selectedParticipants = [];
+  bool _isLoading = true;
+  bool _isSaving = false;
+  bool _isDeleting = false;
 
   @override
   void initState() {
     super.initState();
-    _endTime = _calculateEndTime(TimeOfDay.now());
+    _nameController = TextEditingController(text: widget.session.name);
+    _descriptionController = TextEditingController(text: widget.session.description ?? '');
+    _selectedDate = widget.session.sessionDate;
+    _startTime = TimeOfDay.fromDateTime(widget.session.startDateTime);
+    _endTime = TimeOfDay.fromDateTime(widget.session.endDateTime);
+    _gpsValidationEnabled = widget.session.gpsValidationEnabled;
     _loadData();
   }
 
@@ -50,86 +57,32 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     super.dispose();
   }
 
-  // lib/screens/admin/create_session_screen.dart
-  // REPLACE the _loadData method:
-
   Future<void> _loadData() async {
     try {
       final authService = context.read<AuthService>();
-      final databaseService = context.read<DatabaseService>();
-
       final user = await authService.getCurrentUserProfile();
-      if (user == null) return;
-
-      // ⭐ REMOVED: Department validation - admins can create sessions for any department
-
-      final academicYears = await databaseService.getAcademicYears(user.instituteId!);
-      final currentYear = academicYears.firstWhere(
-        (year) => year.isCurrent,
-        orElse: () => academicYears.isNotEmpty 
-            ? academicYears.first 
-            : throw Exception('No academic years configured'),
-      );
 
       setState(() {
         _currentUser = user;
-        _currentAcademicYear = currentYear;
         _isLoading = false;
       });
     } catch (e) {
       AppHelpers.debugError('Load error: $e');
-      if (mounted) {
-        AppHelpers.showErrorToast('Failed to load: ${e.toString()}');
-        Navigator.pop(context);
-      }
+      setState(() => _isLoading = false);
     }
   }
-    
-
-
-  // Future<void> _loadData() async {
-  //   try {
-  //     final authService = context.read<AuthService>();
-  //     final databaseService = context.read<DatabaseService>();
-
-  //     final user = await authService.getCurrentUserProfile();
-  //     if (user == null) return;
-
-  //     if (user.departmentId == null) {
-  //       if (mounted) {
-  //         AppHelpers.showErrorToast('Admin not assigned to department');
-  //         Navigator.pop(context);
-  //       }
-  //       return;
-  //     }
-
-  //     final academicYears = await databaseService.getAcademicYears(user.instituteId!);
-  //     final currentYear = academicYears.firstWhere(
-  //       (year) => year.isCurrent,
-  //       orElse: () => academicYears.isNotEmpty 
-  //           ? academicYears.first 
-  //           : throw Exception('No academic years configured'),
-  //     );
-
-  //     setState(() {
-  //       _currentUser = user;
-  //       _currentAcademicYear = currentYear;
-  //       _isLoading = false;
-  //     });
-  //   } catch (e) {
-  //     AppHelpers.debugError('Load error: $e');
-  //     if (mounted) {
-  //       AppHelpers.showErrorToast('Failed to load: ${e.toString()}');
-  //       Navigator.pop(context);
-  //     }
-  //   }
-  // }
 
   Future<void> _selectDate() async {
+    // Can only extend future, not change past sessions
+    final now = DateTime.now();
+    final firstDate = widget.session.sessionDate.isBefore(now)
+        ? widget.session.sessionDate
+        : now;
+
     final date = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
-      firstDate: DateTime.now(),
+      firstDate: firstDate,
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
 
@@ -146,14 +99,17 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     if (time != null) {
       setState(() {
         _startTime = time;
-        _endTime = _calculateEndTime(time);
+        // Auto-adjust end time if needed
+        final startMinutes = time.hour * 60 + time.minute;
+        final endMinutes = _endTime.hour * 60 + _endTime.minute;
+        if (endMinutes <= startMinutes) {
+          _endTime = TimeOfDay(
+            hour: (time.hour + 2) % 24,
+            minute: time.minute,
+          );
+        }
       });
     }
-  }
-
-  TimeOfDay _calculateEndTime(TimeOfDay startTime) {
-    int newHour = (startTime.hour + 2) % 24;
-    return TimeOfDay(hour: newHour, minute: startTime.minute);
   }
 
   Future<void> _selectEndTime() async {
@@ -175,15 +131,10 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
     }
   }
 
-  Future<void> _createSession() async {
+  Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) return;
-    
-    if (_selectedParticipants.isEmpty) {
-      AppHelpers.showErrorToast('Please select at least one participant');
-      return;
-    }
 
-    setState(() => _isCreating = true);
+    setState(() => _isSaving = true);
 
     try {
       final databaseService = context.read<DatabaseService>();
@@ -207,49 +158,82 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
       final duration = endDateTime.difference(startDateTime);
       if (duration.inMinutes < 15) {
         AppHelpers.showWarningToast('Session must be at least 15 minutes');
-        setState(() => _isCreating = false);
+        setState(() => _isSaving = false);
         return;
       }
 
-      if (duration.inHours > 12) {
-        AppHelpers.showWarningToast('Session cannot exceed 12 hours');
-        setState(() => _isCreating = false);
-        return;
-      }
-
-      // ⭐ Extract master list IDs
-      final masterListIds = _selectedParticipants
-          .map((user) => user['id'] as String)
-          .toList();
-
-      await databaseService.createSessionWithAttendance(
+      await databaseService.updateSession(
+        sessionId: widget.session.id,
         name: _nameController.text.trim(),
-        description: _descriptionController.text.trim().isEmpty 
-            ? null 
+        description: _descriptionController.text.trim().isEmpty
+            ? null
             : _descriptionController.text.trim(),
         startDateTime: startDateTime,
         endDateTime: endDateTime,
-        academicYearId: _currentAcademicYear!.id,
-        departmentId: _currentUser!.departmentId!,
-        createdBy: _currentUser!.id,
         gpsValidationEnabled: _gpsValidationEnabled,
-        masterListIds: masterListIds,
       );
 
       if (mounted) {
-        AppHelpers.showSuccessToast(
-          'Session created with ${masterListIds.length} participants!',
-        );
+        AppHelpers.showSuccessToast('Session updated successfully!');
         Navigator.pop(context, true);
       }
     } catch (e) {
-      AppHelpers.debugError('Create session error: $e');
+      AppHelpers.debugError('Update session error: $e');
       if (mounted) {
-        AppHelpers.showErrorToast('Failed: ${e.toString()}');
+        AppHelpers.showErrorToast('Failed to update session');
       }
     } finally {
       if (mounted) {
-        setState(() => _isCreating = false);
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  Future<void> _deleteSession() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Session?'),
+        content: const Text(
+          'This will permanently delete the session and all attendance records. '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isDeleting = true);
+
+    try {
+      final databaseService = context.read<DatabaseService>();
+      await databaseService.deleteSession(widget.session.id);
+
+      if (mounted) {
+        AppHelpers.showSuccessToast('Session deleted');
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      AppHelpers.debugError('Delete session error: $e');
+      if (mounted) {
+        AppHelpers.showErrorToast('Failed to delete session');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isDeleting = false);
       }
     }
   }
@@ -264,11 +248,31 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
       );
     }
 
+    // Check if session can be edited (only live or upcoming)
+    final canEdit = widget.session.status != 'ended';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Session'),
+        title: const Text('Edit Session'),
         backgroundColor: theme.colorScheme.primary,
         foregroundColor: theme.colorScheme.onPrimary,
+        actions: [
+          if (canEdit)
+            IconButton(
+              onPressed: _isDeleting ? null : _deleteSession,
+              icon: _isDeleting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.delete),
+              tooltip: 'Delete Session',
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSizes.md),
@@ -277,7 +281,30 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Info Card
+              // Warning for ended sessions
+              if (!canEdit)
+                Card(
+                  color: AppColors.warning.withOpacity(0.1),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSizes.md),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: AppColors.warning),
+                        const SizedBox(width: AppSizes.sm),
+                        Expanded(
+                          child: Text(
+                            'This session has ended and cannot be edited.',
+                            style: TextStyle(color: AppColors.warning),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              if (!canEdit) const SizedBox(height: AppSizes.md),
+
+              // Session Info
               Card(
                 color: AppColors.info.withOpacity(0.1),
                 child: Padding(
@@ -290,7 +317,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                           Icon(Icons.info_outline, color: AppColors.info),
                           const SizedBox(width: AppSizes.sm),
                           Text(
-                            'Session Details',
+                            'Session Status',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: AppColors.info,
@@ -299,8 +326,13 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                         ],
                       ),
                       const SizedBox(height: AppSizes.sm),
-                      _buildInfoRow('Department', _currentUser?.departmentName ?? 'Unknown'),
-                      _buildInfoRow('Academic Year', _currentAcademicYear?.yearLabel ?? 'Unknown'),
+                      Text(
+                        'Status: ${widget.session.status.toUpperCase()}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        'Created: ${AppHelpers.formatDateTime(widget.session.createdAt)}',
+                      ),
                     ],
                   ),
                 ),
@@ -314,6 +346,7 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                 controller: _nameController,
                 validator: (value) => AppHelpers.validateRequired(value, 'Session name'),
                 prefixIcon: Icons.event,
+                enabled: canEdit,
               ),
               const SizedBox(height: AppSizes.lg),
 
@@ -324,18 +357,20 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                 controller: _descriptionController,
                 maxLines: 3,
                 prefixIcon: Icons.description,
+                enabled: canEdit,
               ),
               const SizedBox(height: AppSizes.xl),
 
               // Date
               InkWell(
-                onTap: _selectDate,
+                onTap: canEdit ? _selectDate : null,
                 child: InputDecorator(
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Session Date',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.calendar_month),
-                    suffixIcon: Icon(Icons.arrow_drop_down),
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.calendar_month),
+                    suffixIcon: canEdit ? const Icon(Icons.arrow_drop_down) : null,
+                    enabled: canEdit,
                   ),
                   child: Text(
                     AppHelpers.formatDate(_selectedDate, format: AppFormats.dateFull),
@@ -349,12 +384,13 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                 children: [
                   Expanded(
                     child: InkWell(
-                      onTap: _selectStartTime,
+                      onTap: canEdit ? _selectStartTime : null,
                       child: InputDecorator(
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Start',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.access_time),
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.access_time),
+                          enabled: canEdit,
                         ),
                         child: Text(_startTime.format(context)),
                       ),
@@ -363,12 +399,13 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                   const SizedBox(width: AppSizes.md),
                   Expanded(
                     child: InkWell(
-                      onTap: _selectEndTime,
+                      onTap: canEdit ? _selectEndTime : null,
                       child: InputDecorator(
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'End',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.access_time_filled),
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.access_time_filled),
+                          enabled: canEdit,
                         ),
                         child: Text(_endTime.format(context)),
                       ),
@@ -383,67 +420,27 @@ class _CreateSessionScreenState extends State<CreateSessionScreen> {
                 title: const Text('GPS Validation'),
                 subtitle: const Text('Require location verification'),
                 value: _gpsValidationEnabled,
-                onChanged: (value) => setState(() => _gpsValidationEnabled = value),
+                onChanged: canEdit
+                    ? (value) => setState(() => _gpsValidationEnabled = value)
+                    : null,
                 secondary: const Icon(Icons.location_on),
               ),
               const SizedBox(height: AppSizes.xl),
 
-              // Participants
-              Text(
-                'Select Participants',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
+              // Save Button
+              if (canEdit)
+                SizedBox(
+                  width: double.infinity,
+                  child: CustomButton(
+                    text: 'Save Changes',
+                    onPressed: _saveChanges,
+                    isLoading: _isSaving,
+                    icon: Icons.save,
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSizes.md),
-
-              // ⭐ ALL institute participants available
-              SelectParticipantsWidget(
-                instituteId: _currentUser!.instituteId!,
-                departmentId: null, // ⭐ No filter - show ALL
-                academicYearId: null, // ⭐ No filter - show ALL
-                onSelectionChanged: (selected) {
-                  setState(() => _selectedParticipants = selected);
-                },
-              ),
-              const SizedBox(height: AppSizes.xl),
-
-              // Create Button
-              SizedBox(
-                width: double.infinity,
-                child: CustomButton(
-                  text: 'Create Session',
-                  onPressed: _createSession,
-                  isLoading: _isCreating,
-                  icon: Icons.add,
-                ),
-              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSizes.xs),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.info,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
       ),
     );
   }

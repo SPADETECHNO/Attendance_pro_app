@@ -29,8 +29,9 @@ class LoadingWidget extends StatelessWidget {
     final effectiveSize = size ?? 50.0;
     final effectiveMessage = message ?? AppStrings.loading;
 
-    Widget loadingAnimation = _buildLoadingAnimation(effectiveColor, effectiveSize);
-    
+    Widget loadingAnimation =
+        _buildLoadingAnimation(effectiveColor, effectiveSize);
+
     if (opacity != null) {
       loadingAnimation = Opacity(
         opacity: opacity!,
@@ -208,7 +209,8 @@ class FullScreenLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: backgroundColor ?? Theme.of(context).colorScheme.background,
+      backgroundColor:
+          backgroundColor ?? Theme.of(context).colorScheme.background,
       body: LoadingWidget(
         message: message,
         type: type,
@@ -354,14 +356,14 @@ class ListTileLoading extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurface.withOpacity(0.1),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppSizes.radiusRound),
                 ),
               ),
               title: Container(
                 height: 16,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurface.withOpacity(0.1),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppSizes.radiusXs),
                 ),
               ),
@@ -403,7 +405,8 @@ class EmptyStateWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final effectiveIconColor = iconColor ?? theme.colorScheme.onSurface.withOpacity(0.3);
+    final effectiveIconColor =
+        iconColor ?? theme.colorScheme.onSurface.withOpacity(0.3);
 
     return Center(
       child: Padding(
