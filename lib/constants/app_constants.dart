@@ -9,7 +9,9 @@ class AppConstants {
   static const String sessionsTable = 'sessions';
   static const String sessionParticipantsTable = 'session_participants';
   static const String attendanceTable = 'attendance';
-  
+  // ADD THIS LINE 👇
+  static const String instituteMasterListTable = 'institute_master_list';
+  static const String sessionAttendanceTable = 'session_attendance';
   // ================== USER ROLES ==================
   
   static const String superAdminRole = 'super_admin';

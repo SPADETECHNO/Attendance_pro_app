@@ -270,12 +270,11 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       }
 
       // Mark attendance as present
-      await databaseService.markAttendance(
+      await databaseService.markAttendanceSimplified(
         sessionId: widget.session.id,
-        userId: _currentUser!.id,
+        masterListId: _currentUser!.id,
         markedBy: _currentUser!.id,
         status: 'present',
-        markedByUser: true,
         gpsLatitude: locationResult?.latitude,
         gpsLongitude: locationResult?.longitude,
         distanceFromInstitute: locationResult?.distanceFromInstitute,

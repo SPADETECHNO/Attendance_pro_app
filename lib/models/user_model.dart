@@ -1,3 +1,4 @@
+// lib/models/user_model.dart
 import 'package:equatable/equatable.dart';
 
 class UserModel extends Equatable {
@@ -14,6 +15,10 @@ class UserModel extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // ⭐ Join fields for display
+  final String? departmentName;
+  final String? academicYearId;
+
   const UserModel({
     required this.id,
     required this.userId,
@@ -27,6 +32,8 @@ class UserModel extends Equatable {
     required this.tempPasswordUsed,
     required this.createdAt,
     required this.updatedAt,
+    this.departmentName,
+    this.academicYearId,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -43,6 +50,8 @@ class UserModel extends Equatable {
       tempPasswordUsed: json['temp_password_used'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      departmentName: json['department_name'] as String?, // ⭐ Added
+      academicYearId: json['academic_year_id'] as String?, // ⭐ Added
     );
   }
 
@@ -76,6 +85,8 @@ class UserModel extends Equatable {
     bool? tempPasswordUsed,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? departmentName, // ⭐ Added
+    String? academicYearId, // ⭐ Added
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -90,6 +101,8 @@ class UserModel extends Equatable {
       tempPasswordUsed: tempPasswordUsed ?? this.tempPasswordUsed,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      departmentName: departmentName ?? this.departmentName, // ⭐ Added
+      academicYearId: academicYearId ?? this.academicYearId, // ⭐ Added
     );
   }
 
@@ -105,9 +118,9 @@ class UserModel extends Equatable {
   String get initials {
     final words = name.split(' ');
     if (words.length >= 2) {
-      return '${words[0][0]}${words[1]}'.toUpperCase();
+      return '${words[0][0]}${words[1][0]}'.toUpperCase(); // ⭐ Fixed: was missing [0]
     }
-    return name.isNotEmpty ? name.toUpperCase() : '?';
+    return name.isNotEmpty ? name[0].toUpperCase() : '?';
   }
 
   String get roleDisplayName {
@@ -139,6 +152,8 @@ class UserModel extends Equatable {
         tempPasswordUsed,
         createdAt,
         updatedAt,
+        departmentName, // ⭐ Added
+        academicYearId, // ⭐ Added
       ];
 
   @override
@@ -149,7 +164,8 @@ class UserModel extends Equatable {
         'name: $name, '
         'email: $email, '
         'role: $role, '
-        'accountStatus: $accountStatus'
+        'accountStatus: $accountStatus, '
+        'departmentName: $departmentName' // ⭐ Added
         ')';
   }
 }

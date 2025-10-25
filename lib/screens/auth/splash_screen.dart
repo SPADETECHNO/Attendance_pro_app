@@ -28,12 +28,12 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
-    
+
     _animationController = AnimationController(
       duration: AppDurations.verySlow,
       vsync: this,
     );
-    
+
     _scaleAnimation = Tween<double>(
       begin: 0.5,
       end: 1.0,
@@ -41,7 +41,7 @@ class _SplashScreenState extends State<SplashScreen>
       parent: _animationController,
       curve: Curves.elasticOut,
     ));
-    
+
     _opacityAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -49,7 +49,7 @@ class _SplashScreenState extends State<SplashScreen>
       parent: _animationController,
       curve: Curves.easeIn,
     ));
-    
+
     _initializeApp();
   }
 
@@ -63,15 +63,15 @@ class _SplashScreenState extends State<SplashScreen>
     try {
       // Start animations
       _animationController.forward();
-      
+
       // Minimum splash duration for branding
       await Future.delayed(AppDurations.slow);
-      
+
       final authService = context.read<AuthService>();
       final user = await authService.getCurrentUserProfile();
-      
+
       if (!mounted) return;
-      
+
       if (user == null) {
         // User not authenticated, go to login
         _navigateToLogin();
@@ -94,7 +94,8 @@ class _SplashScreenState extends State<SplashScreen>
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const LoginScreen(),
         transitionDuration: AppDurations.normal,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
@@ -107,7 +108,7 @@ class _SplashScreenState extends State<SplashScreen>
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => 
+        pageBuilder: (context, animation, secondaryAnimation) =>
             ForcePasswordChangeScreen(email: email),
         transitionDuration: AppDurations.normal,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -119,7 +120,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _navigateToRoleDashboard(String role) {
     Widget dashboard;
-    
+
     switch (role) {
       case AppConstants.superAdminRole:
         dashboard = const SuperDashboard();
@@ -128,7 +129,7 @@ class _SplashScreenState extends State<SplashScreen>
         dashboard = const InstituteDashboard();
         break;
       case AppConstants.adminRole:
-        dashboard = const AdminDashboard();
+        dashboard = const AdminDashboardScreen();
         break;
       case AppConstants.userRole:
         dashboard = const UserDashboard();
@@ -136,7 +137,7 @@ class _SplashScreenState extends State<SplashScreen>
       default:
         dashboard = const LoginScreen();
     }
-    
+
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
@@ -158,7 +159,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       backgroundColor: AppColors.primary,
       body: SafeArea(
@@ -179,10 +180,11 @@ class _SplashScreenState extends State<SplashScreen>
                         height: 120,
                         decoration: BoxDecoration(
                           color: AppColors.white,
-                          borderRadius: BorderRadius.circular(AppSizes.radiusXl),
+                          borderRadius:
+                              BorderRadius.circular(AppSizes.radiusXl),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.black.withOpacity(0.1),
+                              color: AppColors.black.withValues(alpha: 0.1),
                               blurRadius: 20,
                               offset: const Offset(0, 10),
                             ),
@@ -198,9 +200,9 @@ class _SplashScreenState extends State<SplashScreen>
                   );
                 },
               ),
-              
+
               const SizedBox(height: AppSizes.xl),
-              
+
               // App Name Animation
               AnimatedBuilder(
                 animation: _opacityAnimation,
@@ -231,17 +233,17 @@ class _SplashScreenState extends State<SplashScreen>
                   );
                 },
               ),
-              
+
               const SizedBox(height: AppSizes.xxxl),
-              
+
               // Loading Animation
               LoadingAnimationWidget.progressiveDots(
                 color: AppColors.white,
                 size: 50,
               ),
-              
+
               const SizedBox(height: AppSizes.lg),
-              
+
               // Version Info
               AnimatedBuilder(
                 animation: _opacityAnimation,

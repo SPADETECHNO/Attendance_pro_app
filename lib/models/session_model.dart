@@ -153,7 +153,12 @@ class SessionModel extends Equatable {
     }
   }
 
-  bool get canMarkAttendance => isLive && isActive;
+  // bool get canMarkAttendance => isLive && isActive;
+  bool get canMarkAttendance {
+    final now = DateTime.now();
+    return now.isAfter(startDateTime) && now.isBefore(endDateTime);
+  }
+
 
   @override
   List<Object?> get props => [
