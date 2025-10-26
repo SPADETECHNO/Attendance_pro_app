@@ -137,7 +137,7 @@ class _ManageDepartmentsScreenState extends State<ManageDepartmentsScreen>
               Container(
                 padding: const EdgeInsets.all(AppSizes.md),
                 decoration: BoxDecoration(
-                  color: AppColors.info,
+                  color: AppColors.gray700,
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(20)),
                 ),
@@ -241,12 +241,15 @@ class _ManageDepartmentsScreenState extends State<ManageDepartmentsScreen>
                               title: Text(
                                 admin['name'] ?? 'Unknown',
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w600),
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.black),
                               ),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(admin['email'] ?? ''),
+                                  Text(admin['email'] ?? '',
+                                      style:
+                                          TextStyle(color: Colors.grey[700])),
                                   if (admin['phone'] != null) ...[
                                     const SizedBox(height: 2),
                                     Text(
@@ -334,6 +337,8 @@ class _ManageDepartmentsScreenState extends State<ManageDepartmentsScreen>
                 Expanded(
                   child: CustomButton(
                     text: 'Add Department',
+                    textColor: AppColors.gray700,
+                    backgroundColor: Colors.white,
                     onPressed: () {
                       Navigator.pop(context);
                       _showCreateDepartmentDialog();
@@ -346,6 +351,8 @@ class _ManageDepartmentsScreenState extends State<ManageDepartmentsScreen>
                 Expanded(
                   child: CustomButton(
                     text: 'Add Admin',
+                    textColor: Colors.white,
+                    backgroundColor: AppColors.gray700,
                     onPressed: () {
                       Navigator.pop(context);
                       _showCreateAdminDialog();
@@ -413,58 +420,205 @@ class _ManageDepartmentsScreenState extends State<ManageDepartmentsScreen>
     }
   }
 
-  void _showAdminDetailsDialog(Map admin) {
+  void _showAdminDetailsDialog(Map<String, dynamic> admin) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(admin['name'] ?? 'Admin Details'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.email),
-              title: Text(admin['email'] ?? ''),
-              textColor: AppColors.black,
-              contentPadding: EdgeInsets.zero,
-            ),
-            if (admin['phone'] != null)
-              ListTile(
-                leading: const Icon(Icons.phone),
-                title: Text(admin['phone']),
-                textColor: AppColors.black,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ListTile(
-              leading: const Icon(Icons.domain),
-              title: Text(admin['department_name'] ?? 'No department'),
-              textColor: AppColors.black,
-              contentPadding: EdgeInsets.zero,
-            ),
-            ListTile(
-              leading: const Icon(Icons.lock),
-              title: Text(
-                  'Password: temp_${admin['email']?.split('@').first ?? 'admin'}'),
-              textColor: AppColors.black,
-              contentPadding: EdgeInsets.zero,
-            ),
-          ],
+      builder: (context) => Dialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          constraints: const BoxConstraints(maxHeight: 500),
+          child: Column(
+            children: [
+              // Gray700 Header Section
+              Container(
+                padding: const EdgeInsets.all(AppSizes.md),
+                decoration: BoxDecoration(
+                  color: AppColors.gray700,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppSizes.radiusLg),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.white.withOpacity(0.2),
+                      child: Text(
+                        AppHelpers.getInitials(admin['name'] ?? 'Unknown'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSizes.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            admin['name'] ?? 'Admin Details',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'Department Admin',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content Section
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSizes.md),
+                  child: Column(
+                    children: [
+                      _buildDetailItem(
+                        Icons.badge,
+                        'User ID',
+                        admin['user_id'] ?? 'Not provided',
+                      ),
+                      _buildDetailItem(
+                        Icons.email,
+                        'Email',
+                        admin['email'] ?? 'Not provided',
+                      ),
+                      if (admin['phone'] != null)
+                        _buildDetailItem(
+                          Icons.phone,
+                          'Phone',
+                          admin['phone'],
+                        ),
+                      _buildDetailItem(
+                        Icons.domain,
+                        'Department',
+                        admin['department_name'] ?? 'No department',
+                      ),
+                      _buildDetailItem(
+                        Icons.lock,
+                        'Password',
+                        'temp_${admin['user_id'] ?? admin['email']?.split('@').first ?? 'admin'}',
+                        canCopy: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Action Buttons Section
+              Container(
+                padding: const EdgeInsets.all(AppSizes.md),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _confirmDeleteAdmin(admin);
+                        },
+                        icon: const Icon(Icons.person_remove, size: 16),
+                        label: const Text('Remove'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.error,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSizes.md),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showEditAdminDialog(admin);
+                        },
+                        icon: const Icon(Icons.edit, size: 16),
+                        label: const Text('Edit Admin'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.gray700,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _confirmDeleteAdmin(admin);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
+        ),
+      ),
+    );
+  }
+
+// Helper method for detail items
+  Widget _buildDetailItem(IconData icon, String label, String value,
+      {bool canCopy = false}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSizes.sm),
+      padding: const EdgeInsets.all(AppSizes.sm),
+      decoration: BoxDecoration(
+        color: AppColors.gray100,
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSizes.xs),
+            decoration: BoxDecoration(
+              color: AppColors.gray700.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(AppSizes.radiusSm),
             ),
-            child: const Text('Remove Admin'),
+            child: Icon(icon, color: AppColors.gray700, size: 16),
           ),
+          const SizedBox(width: AppSizes.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: AppColors.gray600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (canCopy)
+            IconButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: value));
+                AppHelpers.showSuccessToast('Copied to clipboard');
+              },
+              icon: Icon(Icons.copy, color: AppColors.gray600, size: 16),
+              tooltip: 'Copy',
+            ),
         ],
       ),
     );
@@ -484,8 +638,9 @@ class _ManageDepartmentsScreenState extends State<ManageDepartmentsScreen>
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Manage Departments'),
-          backgroundColor: theme.colorScheme.primary,
-          foregroundColor: theme.colorScheme.onPrimary,
+          backgroundColor: const Color.fromRGBO(55, 65, 81, 1),
+          foregroundColor: AppColors.onPrimary,
+          iconTheme: IconThemeData(color: AppColors.white),
           bottom: TabBar(
             controller: _tabController,
             tabs: const [
@@ -504,6 +659,7 @@ class _ManageDepartmentsScreenState extends State<ManageDepartmentsScreen>
                   child: const ListTile(
                     leading: Icon(Icons.add),
                     title: Text('Add Department'),
+                    iconColor: AppColors.gray700,
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
@@ -512,6 +668,7 @@ class _ManageDepartmentsScreenState extends State<ManageDepartmentsScreen>
                   child: const ListTile(
                     leading: Icon(Icons.person_add),
                     title: Text('Add Admin'),
+                    iconColor: AppColors.gray700,
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
@@ -546,8 +703,8 @@ class _ManageDepartmentsScreenState extends State<ManageDepartmentsScreen>
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: _showAddOptions,
-          backgroundColor: theme.colorScheme.primary,
-          child: const Icon(Icons.add),
+          backgroundColor: AppColors.gray700,
+          child: const Icon(Icons.add, color: Colors.white),
         ),
       ),
     );
@@ -1065,6 +1222,7 @@ class _EditAdminDialogState extends State<EditAdminDialog> {
                   Expanded(
                     child: CustomButton(
                       text: 'Cancel',
+                      textColor: AppColors.gray700,
                       onPressed: () => Navigator.pop(context),
                       isOutlined: true,
                     ),
@@ -1072,7 +1230,8 @@ class _EditAdminDialogState extends State<EditAdminDialog> {
                   const SizedBox(width: AppSizes.md),
                   Expanded(
                     child: CustomButton(
-                      text: 'Update Admin',
+                      backgroundColor: AppColors.gray700,
+                      text: 'Update',
                       onPressed: _isLoading ? null : _updateAdmin,
                       isLoading: _isLoading,
                       icon: Icons.save,
@@ -1153,48 +1312,120 @@ class _CreateDepartmentDialogState extends State<CreateDepartmentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Create Department'),
-      content: Form(
-        key: _formKey,
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+      ),
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        constraints: const BoxConstraints(maxHeight: 500),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            CustomTextField(
-              label: 'Department Name',
-              hint: 'Enter department name',
-              controller: _nameController,
-              validator: (value) =>
-                  AppHelpers.validateRequired(value, 'Department name'),
-              prefixIcon: Icons.domain,
+            // Gray700 Header Section
+            Container(
+              padding: const EdgeInsets.all(AppSizes.md),
+              decoration: BoxDecoration(
+                color: AppColors.gray700,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppSizes.radiusLg),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.domain, color: Colors.white),
+                  const SizedBox(width: AppSizes.sm),
+                  const Text(
+                    'Create Department',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: AppSizes.md),
-            CustomTextField(
-              label: 'Description (Optional)',
-              hint: 'Enter department description',
-              controller: _descriptionController,
-              maxLines: 3,
-              prefixIcon: Icons.description,
+
+            // Content Section
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSizes.md),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      CustomTextField(
+                        label: 'Department Name',
+                        hint: 'Enter department name',
+                        controller: _nameController,
+                        validator: (value) => AppHelpers.validateRequired(
+                            value, 'Department name'),
+                        prefixIcon: Icons.domain,
+                      ),
+                      const SizedBox(height: AppSizes.lg),
+                      CustomTextField(
+                        label: 'Description (Optional)',
+                        hint: 'Enter department description',
+                        controller: _descriptionController,
+                        maxLines: 3,
+                        prefixIcon: Icons.description,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Action Buttons Section
+            Container(
+              padding: const EdgeInsets.all(AppSizes.md),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.gray300,
+                        foregroundColor: AppColors.gray700,
+                        elevation: 0,
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSizes.md),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _createDepartment,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.gray700,
+                        foregroundColor: Colors.white,
+                        elevation: 2,
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation(Colors.white),
+                              ),
+                            )
+                          : const Text('Create'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _createDepartment,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Create'),
-        ),
-      ],
     );
   }
 }
@@ -1252,12 +1483,14 @@ class _CreateAdminDialogState extends State<CreateAdminDialog> {
   Future<void> _loadAcademicYears() async {
     try {
       final databaseService = context.read<DatabaseService>();
-      final academicYears = await databaseService.getAcademicYears(widget.instituteId);
-      
+      final academicYears =
+          await databaseService.getAcademicYears(widget.instituteId);
+
       setState(() {
         _academicYears = academicYears;
         _selectedAcademicYear = academicYears.isNotEmpty
-            ? academicYears.firstWhere((year) => year.isCurrent, orElse: () => academicYears.first)
+            ? academicYears.firstWhere((year) => year.isCurrent,
+                orElse: () => academicYears.first)
             : null;
       });
     } catch (e) {
@@ -1515,7 +1748,8 @@ class _CreateAdminDialogState extends State<CreateAdminDialog> {
                                 if (year.isCurrent) ...[
                                   const SizedBox(width: AppSizes.xs),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 4, vertical: 2),
                                     decoration: BoxDecoration(
                                       color: AppColors.success,
                                       borderRadius: BorderRadius.circular(4),
@@ -1534,9 +1768,11 @@ class _CreateAdminDialogState extends State<CreateAdminDialog> {
                             ),
                           );
                         }).toList(),
-                        onChanged: (year) => setState(() => _selectedAcademicYear = year),
+                        onChanged: (year) =>
+                            setState(() => _selectedAcademicYear = year),
                         validator: (value) {
-                          if (value == null) return 'Please select an academic year';
+                          if (value == null)
+                            return 'Please select an academic year';
                           return null;
                         },
                       ),
@@ -1599,7 +1835,8 @@ class _CreateAdminDialogState extends State<CreateAdminDialog> {
                             // ✅ Checkbox for temp password
                             CheckboxListTile(
                               contentPadding: EdgeInsets.zero,
-                              title: const Text('Use temporary password'),
+                              title: const Text('Use temporary password',
+                                  style: TextStyle(color: AppColors.gray700)),
                               subtitle: Text(
                                 _useTempPassword
                                     ? 'Admin will be prompted to change password on first login'
@@ -1695,6 +1932,7 @@ class _CreateAdminDialogState extends State<CreateAdminDialog> {
                 children: [
                   Expanded(
                     child: CustomButton(
+                      textColor: AppColors.gray700,
                       text: 'Cancel',
                       onPressed: () => Navigator.pop(context),
                       isOutlined: true,
@@ -1703,7 +1941,9 @@ class _CreateAdminDialogState extends State<CreateAdminDialog> {
                   const SizedBox(width: AppSizes.md),
                   Expanded(
                     child: CustomButton(
-                      text: 'Create Admin',
+                      backgroundColor: AppColors.gray700,
+                      textStyle: const TextStyle(color: Colors.white),
+                      text: 'Create',
                       onPressed: _isLoading ? null : _createAdmin,
                       isLoading: _isLoading,
                       icon: Icons.person_add,

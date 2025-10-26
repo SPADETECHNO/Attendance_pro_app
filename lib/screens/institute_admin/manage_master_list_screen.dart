@@ -1,3 +1,5 @@
+// lib/screens/institute_admin/manage_master_list_screen.dart
+
 import 'package:attendance_pro_app/models/academic_year_model.dart';
 import 'package:attendance_pro_app/models/department_model.dart';
 import 'package:flutter/material.dart';
@@ -24,7 +26,6 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
   List<InstituteMasterListModel> _filteredList = [];
   bool _isLoading = true;
   bool _isSearching = false;
-  
   final _searchController = TextEditingController();
   String _searchQuery = '';
   String _selectedFilter = 'all';
@@ -49,7 +50,6 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
       
       if (user?.instituteId != null) {
         final masterList = await databaseService.getInstituteMasterList(user!.instituteId!);
-
         if (mounted) {
           setState(() {
             _currentUser = user;
@@ -77,7 +77,7 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
 
         final matchesFilter = _selectedFilter == 'all' ||
             (_selectedFilter == 'active' && user.isActive) ||
-            (_selectedFilter == 'inactive' && !user.isActive) ;
+            (_selectedFilter == 'inactive' && !user.isActive);
 
         return matchesSearch && matchesFilter;
       }).toList();
@@ -118,7 +118,6 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
 
       if (mounted) {
         setState(() => _isSearching = false);
-        
         if (user != null) {
           setState(() {
             _filteredList = [user];
@@ -177,16 +176,17 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
               ),
             ),
             const SizedBox(width: AppSizes.md),
-            // Use standard button to avoid constraint issues
             SizedBox(
               width: 140,
-              child: OutlinedButton.icon(
+              child: ElevatedButton.icon(
                 onPressed: _isSearching ? null : () => _showSearchByIdDialog(),
-                icon: _isSearching 
+                icon: _isSearching
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.person_search),
+                    : const Icon(Icons.person_search, size: 16),
                 label: const Text('Search by ID'),
-                style: OutlinedButton.styleFrom(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.gray700,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
               ),
@@ -203,8 +203,6 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
               _buildFilterChip('Active', 'active', _masterList.where((u) => u.isActive).length),
               const SizedBox(width: AppSizes.sm),
               _buildFilterChip('Inactive', 'inactive', _masterList.where((u) => !u.isActive).length),
-              const SizedBox(width: AppSizes.sm),
-              // _buildFilterChip('Password Pending', 'pending_password', _masterList.where((u) => u.needsPasswordChange).length),
             ],
           ),
         ),
@@ -221,10 +219,10 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
         if (selected) _onFilterChanged(value);
       },
       backgroundColor: Colors.transparent,
-      selectedColor: AppColors.primary.withAlpha((0.2 * 255).toInt()),
-      checkmarkColor: AppColors.primary,
+      selectedColor: AppColors.gray700.withOpacity(0.1),
+      checkmarkColor: AppColors.gray700,
       labelStyle: TextStyle(
-        color: isSelected ? AppColors.primary : null,
+        color: isSelected ? AppColors.gray700 : AppColors.gray600,
         fontWeight: isSelected ? FontWeight.bold : null,
       ),
     );
@@ -235,17 +233,80 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Search by User ID'),
-        content: CustomTextField(
-          controller: controller,
-          label: 'User ID',
-          hint: 'Enter exact user ID',
-          prefixIcon: Icons.badge,
-          autofocus: true,
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSizes.xs),
+              decoration: BoxDecoration(
+                color: AppColors.info.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+              ),
+              child: Icon(
+                Icons.person_search,
+                color: AppColors.info,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: AppSizes.sm),
+            Text(
+              'Search by User ID',
+              style: TextStyle(
+                color: AppColors.onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CustomTextField(
+              controller: controller,
+              label: 'User ID',
+              hint: 'Enter exact user ID',
+              prefixIcon: Icons.badge,
+              autofocus: true,
+            ),
+            const SizedBox(height: AppSizes.sm),
+            Container(
+              padding: const EdgeInsets.all(AppSizes.sm),
+              decoration: BoxDecoration(
+                color: AppColors.info.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: AppColors.info,
+                    size: 16,
+                  ),
+                  const SizedBox(width: AppSizes.xs),
+                  Expanded(
+                    child: Text(
+                      'Enter the exact User ID to search for a specific user',
+                      style: TextStyle(
+                        color: AppColors.info,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.gray600,
+            ),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -253,6 +314,11 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
               Navigator.pop(context);
               _searchByUserId(controller.text);
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.gray700,
+              foregroundColor: Colors.white,
+              elevation: 2,
+            ),
             child: const Text('Search'),
           ),
         ],
@@ -262,8 +328,6 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (_isLoading) {
       return const Scaffold(
         body: LoadingWidget(message: 'Loading master list...'),
@@ -271,27 +335,35 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
     }
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Institute Master List'),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
+        title: const Text(
+          'Institute Master List',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: AppColors.gray800,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
             onPressed: _loadData,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Refresh',
           ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: _loadData,
+        color: AppColors.gray700,
         child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.all(AppSizes.md),
               child: _buildSearchAndFilters(),
             ),
-            
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
               child: Row(
@@ -299,8 +371,9 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
                 children: [
                   Text(
                     'Showing ${_filteredList.length} of ${_masterList.length} users',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withAlpha((0.7 * 255).toInt()),
+                    style: TextStyle(
+                      color: AppColors.gray600,
+                      fontSize: 14,
                     ),
                   ),
                   if (_searchQuery.isNotEmpty || _selectedFilter != 'all')
@@ -313,12 +386,14 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
                         });
                         _filterList();
                       },
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.gray700,
+                      ),
                       child: const Text('Clear Filters'),
                     ),
                 ],
               ),
             ),
-            
             Expanded(
               child: _filteredList.isEmpty
                   ? _buildEmptyState()
@@ -327,7 +402,7 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
                       itemCount: _filteredList.length,
                       itemBuilder: (context, index) {
                         final user = _filteredList[index];
-                        return _buildUserCard(user, theme);
+                        return _buildUserCard(user);
                       },
                     ),
             ),
@@ -338,7 +413,8 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
         onPressed: _showAddUserDialog,
         icon: const Icon(Icons.add),
         label: const Text('Add User'),
-        backgroundColor: theme.colorScheme.primary,
+        backgroundColor: AppColors.gray800,
+        foregroundColor: Colors.white,
       ),
     );
   }
@@ -352,20 +428,23 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
             Icon(
               Icons.search_off,
               size: 64,
-              color: Colors.grey[400],
+              color: AppColors.gray400,
             ),
             const SizedBox(height: AppSizes.md),
             Text(
               'No users found matching your criteria',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.grey[600],
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.gray600,
               ),
             ),
             const SizedBox(height: AppSizes.sm),
             Text(
               'Try adjusting your search or filters',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[500],
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.gray500,
               ),
             ),
           ],
@@ -380,35 +459,59 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
           Icon(
             Icons.people_outline,
             size: 64,
-            color: Colors.grey[400],
+            color: AppColors.gray400,
           ),
           const SizedBox(height: AppSizes.md),
           Text(
             'No users in master list yet',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.grey[600],
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.gray600,
             ),
           ),
           const SizedBox(height: AppSizes.sm),
           Text(
             'Upload a CSV file or add users manually',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[500],
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.gray500,
             ),
+          ),
+          const SizedBox(height: AppSizes.xl),
+          ElevatedButton(
+            onPressed: _showAddUserDialog,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.gray700,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Add First User'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildUserCard(InstituteMasterListModel user, ThemeData theme) {
-    return Card(
+  Widget _buildUserCard(InstituteMasterListModel user) {
+    return Container(
       margin: const EdgeInsets.only(bottom: AppSizes.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(color: AppColors.gray200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: user.isActive 
-              ? AppColors.success.withAlpha((0.1 * 255).toInt())
-              : AppColors.warning.withAlpha((0.1 * 255).toInt()),
+          backgroundColor: user.isActive
+              ? AppColors.success.withOpacity(0.1)
+              : AppColors.warning.withOpacity(0.1),
           child: Text(
             user.initials,
             style: TextStyle(
@@ -419,8 +522,9 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
         ),
         title: Text(
           user.name,
-          style: theme.textTheme.titleMedium?.copyWith(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
+            color: AppColors.onSurface,
           ),
         ),
         subtitle: Column(
@@ -428,9 +532,12 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
           children: [
             Text(
               'ID: ${user.userId} • ${user.email}',
-              style: theme.textTheme.bodySmall,
+              style: TextStyle(
+                color: AppColors.gray600,
+                fontSize: 12,
+              ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Row(
               children: [
                 Container(
@@ -440,38 +547,19 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: user.isActive
-                        ? AppColors.success.withAlpha((0.1 * 255).toInt())
-                        : AppColors.warning.withAlpha((0.1 * 255).toInt()),
+                        ? AppColors.success.withOpacity(0.1)
+                        : AppColors.warning.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     user.isActive ? 'Active' : 'Inactive',
-                    style: theme.textTheme.labelSmall?.copyWith(
+                    style: TextStyle(
                       color: user.isActive ? AppColors.success : AppColors.warning,
                       fontWeight: FontWeight.w600,
+                      fontSize: 10,
                     ),
                   ),
                 ),
-                // if (user.needsPasswordChange) ...[
-                //   const SizedBox(width: AppSizes.xs),
-                //   Container(
-                //     padding: const EdgeInsets.symmetric(
-                //       horizontal: 6,
-                //       vertical: 2,
-                //     ),
-                //     decoration: BoxDecoration(
-                //       color: AppColors.info.withAlpha((0.1 * 255).toInt()),
-                //       borderRadius: BorderRadius.circular(4),
-                //     ),
-                //     child: Text(
-                //       'Password Pending',
-                //       style: theme.textTheme.labelSmall?.copyWith(
-                //         color: AppColors.info,
-                //         fontWeight: FontWeight.w600,
-                //       ),
-                //     ),
-                //   ),
-                // ],
                 if (user.departmentId != null) ...[
                   const SizedBox(width: AppSizes.xs),
                   Container(
@@ -480,14 +568,15 @@ class _ManageMasterListScreenState extends State<ManageMasterListScreen> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withAlpha((0.1 * 255).toInt()),
+                      color: AppColors.gray700.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       user.displayDepartment,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.primary,
+                      style: TextStyle(
+                        color: AppColors.gray700,
                         fontWeight: FontWeight.w600,
+                        fontSize: 10,
                       ),
                     ),
                   ),
@@ -572,30 +661,105 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
   }
 
   Future<void> _deleteUser() async {
-    final confirmed = await AppHelpers.showConfirmDialog(
-      context,
-      title: 'Delete User',
-      message: 'Are you sure you want to remove ${widget.user.name} from the master list? This action cannot be undone.',
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSizes.xs),
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+              ),
+              child: Icon(
+                Icons.delete_rounded,
+                color: AppColors.error,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: AppSizes.sm),
+            Text(
+              'Delete User',
+              style: TextStyle(
+                color: AppColors.onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSizes.sm),
+              decoration: BoxDecoration(
+                color: AppColors.gray100,
+                borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+              ),
+              child: Text(
+                widget.user.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.gray700,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSizes.md),
+            Text(
+              'Are you sure you want to remove ${widget.user.name} from the master list? This action cannot be undone.',
+              style: TextStyle(
+                color: AppColors.gray700,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.gray600,
+            ),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              elevation: 2,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
 
-    if (!confirmed) return;
-
-    setState(() => _isLoading = true);
-    try {
-      final databaseService = context.read<DatabaseService>();
-      await databaseService.deleteFromInstituteMasterList(widget.user.id);
-
-      AppHelpers.showSuccessToast('User removed from master list');
-      if (mounted) {
-        Navigator.pop(context);
-        widget.onUpdated();
-      }
-    } catch (e) {
-      AppHelpers.debugError('Delete user error: $e');
-      AppHelpers.showErrorToast('Failed to remove user');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
+    if (confirmed == true) {
+      setState(() => _isLoading = true);
+      try {
+        final databaseService = context.read<DatabaseService>();
+        await databaseService.deleteFromInstituteMasterList(widget.user.id);
+        AppHelpers.showSuccessToast('User removed from master list');
+        if (mounted) {
+          Navigator.pop(context);
+          widget.onUpdated();
+        }
+      } catch (e) {
+        AppHelpers.debugError('Delete user error: $e');
+        AppHelpers.showErrorToast('Failed to remove user');
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     }
   }
@@ -603,6 +767,10 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+      ),
       child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
         constraints: const BoxConstraints(maxHeight: 600),
@@ -611,7 +779,7 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
             Container(
               padding: const EdgeInsets.all(AppSizes.md),
               decoration: BoxDecoration(
-                color: AppColors.primary,
+                color: AppColors.gray700,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(AppSizes.radiusLg),
                 ),
@@ -619,7 +787,7 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
               child: Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: Colors.white.withAlpha((0.2 * 255).toInt()),
+                    backgroundColor: Colors.white.withOpacity(0.2),
                     child: Text(
                       widget.user.initials,
                       style: const TextStyle(
@@ -644,7 +812,7 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
                         Text(
                           'ID: ${widget.user.userId}',
                           style: TextStyle(
-                            color: Colors.white.withAlpha((0.9 * 255).toInt()),
+                            color: Colors.white.withOpacity(0.9),
                             fontSize: 14,
                           ),
                         ),
@@ -658,7 +826,6 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
                 ],
               ),
             ),
-
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(AppSizes.md),
@@ -697,11 +864,10 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
                         helperText: 'For organizational purposes only',
                       ),
                       const SizedBox(height: AppSizes.lg),
-
                       Container(
                         padding: const EdgeInsets.all(AppSizes.md),
                         decoration: BoxDecoration(
-                          color: Colors.grey.withAlpha((0.1 * 255).toInt()),
+                          color: AppColors.gray100,
                           borderRadius: BorderRadius.circular(AppSizes.radiusMd),
                         ),
                         child: Column(
@@ -709,8 +875,10 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
                           children: [
                             Text(
                               'Account Information',
-                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
+                                color: AppColors.gray700,
+                                fontSize: 16,
                               ),
                             ),
                             const SizedBox(height: AppSizes.sm),
@@ -732,27 +900,12 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
                               ],
                             ),
                             const SizedBox(height: AppSizes.xs),
-                            // Row(
-                            //   children: [
-                            //     Icon(
-                            //       widget.user.needsPasswordChange ? Icons.lock_clock : Icons.lock,
-                            //       color: widget.user.needsPasswordChange ? AppColors.info : AppColors.success,
-                            //       size: 16,
-                            //     ),
-                            //     const SizedBox(width: AppSizes.xs),
-                            //     Text(
-                            //       'Password: ${widget.user.needsPasswordChange ? 'Pending Change' : 'Set'}',
-                            //       style: TextStyle(
-                            //         color: widget.user.needsPasswordChange ? AppColors.info : AppColors.success,
-                            //         fontWeight: FontWeight.w500,
-                            //       ),
-                            //     ),
-                            //   ],
-                            // ),
-                            const SizedBox(height: AppSizes.xs),
                             Text(
                               'Added: ${AppHelpers.formatDate(widget.user.createdAt)}',
-                              style: Theme.of(context).textTheme.bodySmall,
+                              style: TextStyle(
+                                color: AppColors.gray600,
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
@@ -762,18 +915,18 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
                 ),
               ),
             ),
-
             Container(
               padding: const EdgeInsets.all(AppSizes.md),
               child: Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child: ElevatedButton.icon(
                       onPressed: _isLoading ? null : _deleteUser,
-                      icon: const Icon(Icons.delete),
+                      icon: const Icon(Icons.delete, size: 16),
                       label: const Text('Delete'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.error,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.error,
+                        foregroundColor: Colors.white,
                       ),
                     ),
                   ),
@@ -781,10 +934,14 @@ class _UserDetailsDialogState extends State<_UserDetailsDialog> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: _isLoading ? null : _updateUser,
-                      icon: _isLoading 
+                      icon: _isLoading
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.save),
+                          : const Icon(Icons.save, size: 16),
                       label: const Text('Update User'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.gray700,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ),
                 ],
@@ -818,13 +975,11 @@ class _AddUserDialogState extends State<_AddUserDialog> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  
-  // OPTIONAL fields - can be null
+
   String? _selectedDepartmentId;
   String? _selectedAcademicYearId;
   List<DepartmentModel> _departments = [];
   List<AcademicYearModel> _academicYears = [];
-  
   bool _isLoading = false;
   bool _isLoadingData = true;
   bool _sendEmailInvitation = true;
@@ -840,7 +995,7 @@ class _AddUserDialogState extends State<_AddUserDialog> {
       final databaseService = context.read<DatabaseService>();
       final departments = await databaseService.getDepartmentsByInstitute(widget.instituteId);
       final academicYears = await databaseService.getAcademicYears(widget.instituteId);
-      
+
       if (mounted) {
         setState(() {
           _departments = departments;
@@ -865,12 +1020,15 @@ class _AddUserDialogState extends State<_AddUserDialog> {
     }
 
     return Dialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+      ),
       child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
         constraints: const BoxConstraints(maxHeight: 700),
         child: Column(
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.all(AppSizes.md),
               decoration: BoxDecoration(
@@ -894,7 +1052,6 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                 ],
               ),
             ),
-
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(AppSizes.md),
@@ -903,13 +1060,12 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Info Card
                       Container(
                         padding: const EdgeInsets.all(AppSizes.md),
                         decoration: BoxDecoration(
-                          color: AppColors.info.withAlpha((0.1 * 255).toInt()),
+                          color: AppColors.info.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                          border: Border.all(color: AppColors.info.withAlpha((0.3 * 255).toInt())),
+                          border: Border.all(color: AppColors.info.withOpacity(0.3)),
                         ),
                         child: Row(
                           children: [
@@ -926,7 +1082,6 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                       ),
                       const SizedBox(height: AppSizes.lg),
 
-                      // Required Fields
                       CustomTextField(
                         label: 'User ID',
                         controller: _userIdController,
@@ -935,7 +1090,6 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                         helperText: 'Unique identifier for the user',
                       ),
                       const SizedBox(height: AppSizes.lg),
-                      
                       CustomTextField(
                         label: 'Name',
                         controller: _nameController,
@@ -943,7 +1097,6 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                         prefixIcon: Icons.person,
                       ),
                       const SizedBox(height: AppSizes.lg),
-                      
                       CustomTextField(
                         label: 'Email',
                         controller: _emailController,
@@ -952,7 +1105,6 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                         keyboardType: TextInputType.emailAddress,
                       ),
                       const SizedBox(height: AppSizes.lg),
-                      
                       CustomTextField(
                         label: 'Phone (Optional)',
                         controller: _phoneController,
@@ -961,23 +1113,23 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                       ),
                       const SizedBox(height: AppSizes.lg),
 
-                      // Optional Organization Fields
                       Text(
                         'Optional Organization Details',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                          color: AppColors.gray700,
+                          fontSize: 16,
                         ),
                       ),
                       Text(
                         'These can be assigned later or left empty',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
+                        style: TextStyle(
+                          color: AppColors.gray600,
+                          fontSize: 12,
                         ),
                       ),
                       const SizedBox(height: AppSizes.md),
 
-                      // Department Dropdown (Optional)
                       DropdownButtonFormField<String>(
                         value: _selectedDepartmentId,
                         decoration: const InputDecoration(
@@ -986,11 +1138,11 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                           prefixIcon: Icon(Icons.domain),
                         ),
                         items: [
-                          const DropdownMenuItem<String>(
+                          const DropdownMenuItem(
                             value: null,
                             child: Text('No Department Assigned'),
                           ),
-                          ..._departments.map((dept) => DropdownMenuItem<String>(
+                          ..._departments.map((dept) => DropdownMenuItem(
                             value: dept.id,
                             child: Text(dept.name),
                           )),
@@ -1001,7 +1153,6 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                       ),
                       const SizedBox(height: AppSizes.lg),
 
-                      // Academic Year Dropdown (Optional)
                       DropdownButtonFormField<String>(
                         value: _selectedAcademicYearId,
                         decoration: const InputDecoration(
@@ -1010,11 +1161,11 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                           prefixIcon: Icon(Icons.calendar_today),
                         ),
                         items: [
-                          const DropdownMenuItem<String>(
+                          const DropdownMenuItem(
                             value: null,
                             child: Text('No Academic Year Assigned'),
                           ),
-                          ..._academicYears.map((year) => DropdownMenuItem<String>(
+                          ..._academicYears.map((year) => DropdownMenuItem(
                             value: year.id,
                             child: Text(year.yearLabel),
                           )),
@@ -1025,11 +1176,10 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                       ),
                       const SizedBox(height: AppSizes.xl),
 
-                      // Email invitation toggle
                       Container(
                         padding: const EdgeInsets.all(AppSizes.md),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withAlpha((0.05 * 255).toInt()),
+                          color: AppColors.gray100,
                           borderRadius: BorderRadius.circular(AppSizes.radiusMd),
                         ),
                         child: Row(
@@ -1040,8 +1190,9 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                                 children: [
                                   Text(
                                     'Send Email Invitation',
-                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
+                                      color: AppColors.gray700,
                                     ),
                                   ),
                                   const SizedBox(height: AppSizes.xs),
@@ -1049,7 +1200,10 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                                     _sendEmailInvitation
                                         ? 'User will receive login credentials via email'
                                         : 'You will share credentials manually',
-                                    style: Theme.of(context).textTheme.bodySmall,
+                                    style: TextStyle(
+                                      color: AppColors.gray600,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1059,7 +1213,7 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                               onChanged: (value) {
                                 setState(() => _sendEmailInvitation = value);
                               },
-                              activeColor: AppColors.primary,
+                              activeColor: AppColors.success,
                             ),
                           ],
                         ),
@@ -1069,15 +1223,18 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                 ),
               ),
             ),
-
-            // Action Buttons
             Container(
               padding: const EdgeInsets.all(AppSizes.md),
               child: Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: ElevatedButton(
                       onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.gray300,
+                        foregroundColor: AppColors.gray700,
+                        elevation: 0,
+                      ),
                       child: const Text('Cancel'),
                     ),
                   ),
@@ -1087,8 +1244,12 @@ class _AddUserDialogState extends State<_AddUserDialog> {
                       onPressed: _isLoading ? null : _addUser,
                       icon: _isLoading
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.add),
+                          : const Icon(Icons.add, size: 16),
                       label: const Text('Add to Institute'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.success,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ),
                 ],
@@ -1112,8 +1273,8 @@ class _AddUserDialogState extends State<_AddUserDialog> {
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
         instituteId: widget.instituteId,
-        departmentId: _selectedDepartmentId, // Can be null
-        academicYearId: _selectedAcademicYearId, // Can be null
+        departmentId: _selectedDepartmentId,
+        academicYearId: _selectedAcademicYearId,
         createdBy: widget.createdBy,
       );
 
