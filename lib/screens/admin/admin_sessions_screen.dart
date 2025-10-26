@@ -1,10 +1,11 @@
 // lib/screens/admin/admin_sessions_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:attendance_pro_app/services/auth_service.dart';
 import 'package:attendance_pro_app/services/database_service.dart';
 import 'package:attendance_pro_app/screens/admin/create_session_screen.dart';
-import 'package:attendance_pro_app/screens/admin/attendance_screen.dart'; // ⭐ CHANGED
+import 'package:attendance_pro_app/screens/admin/attendance_screen.dart';
 import 'package:attendance_pro_app/widgets/loading_widget.dart';
 import 'package:attendance_pro_app/utils/constants.dart';
 import 'package:attendance_pro_app/utils/helpers.dart';
@@ -19,13 +20,13 @@ class AdminSessionsScreen extends StatefulWidget {
 }
 
 class _AdminSessionsScreenState extends State<AdminSessionsScreen> {
+  // State Variables
   UserModel? _currentUser;
   List<SessionModel> _sessions = [];
   List<SessionModel> _filteredSessions = [];
   bool _isLoading = true;
-
   final _searchController = TextEditingController();
-  String _statusFilter = 'all'; // 'all', 'live', 'upcoming', 'ended'
+  String _statusFilter = 'all';
 
   @override
   void initState() {
@@ -39,59 +40,64 @@ class _AdminSessionsScreenState extends State<AdminSessionsScreen> {
     super.dispose();
   }
 
+  // Load sessions data
   Future<void> _loadSessions() async {
     setState(() => _isLoading = true);
-
     try {
       final authService = context.read<AuthService>();
       final databaseService = context.read<DatabaseService>();
-
       final user = await authService.getCurrentUserProfile();
+      
       if (user == null) return;
 
-      // ⭐ CHANGED: Load ALL sessions (not filtered by status)
       final sessions = await databaseService.getSessions(
         departmentId: user.departmentId,
       );
 
-      // ⭐ ADDED: Sort by date (newest first)
+      // Sort by date (newest first)
       sessions.sort((a, b) => b.sessionDate.compareTo(a.sessionDate));
 
-      setState(() {
-        _currentUser = user;
-        _sessions = sessions;
-        _applyFilters();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+          _sessions = sessions;
+          _applyFilters();
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       AppHelpers.debugError('Load sessions error: $e');
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
+  // Apply search and status filters
   void _applyFilters() {
-    String query = _searchController.text.toLowerCase();
-
+    final query = _searchController.text.toLowerCase();
     setState(() {
       _filteredSessions = _sessions.where((session) {
-        // Search filter
         final matchesSearch = query.isEmpty ||
             session.name.toLowerCase().contains(query) ||
             session.description?.toLowerCase().contains(query) == true;
-
-        // Status filter
+        
         final matchesStatus = _statusFilter == 'all' ||
             session.status == _statusFilter;
-
+        
         return matchesSearch && matchesStatus;
       }).toList();
     });
   }
 
+  // Get session count by status
+  int _getStatusCount(String status) {
+    if (status == 'all') return _sessions.length;
+    return _sessions.where((s) => s.status == status).length;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (_isLoading) {
       return const Scaffold(
         body: LoadingWidget(message: 'Loading sessions...'),
@@ -99,173 +105,197 @@ class _AdminSessionsScreenState extends State<AdminSessionsScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('All Sessions (${_sessions.length})'), // ⭐ ADDED: Show count
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-        actions: [
-          IconButton(
-            onPressed: _loadSessions,
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+      backgroundColor: AppColors.background,
+      appBar: _buildAppBar(),
+      body: Column(
+        children: [
+          _buildWelcomeCard(),
+          const SizedBox(height: AppSizes.lg),
+          _buildSearchSection(),
+          const SizedBox(height: AppSizes.md),
+          _buildFilterChips(),
+          const SizedBox(height: AppSizes.md),
+          _buildResultsHeader(),
+          const SizedBox(height: AppSizes.sm),
+          Expanded(child: _buildSessionsList()),
+        ],
+      ),
+      floatingActionButton: _buildFAB(),
+    );
+  }
+
+  // App Bar
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      title: Text(
+        'All Sessions (${_sessions.length})',
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+      iconTheme: IconThemeData(color: AppColors.onPrimary),
+      backgroundColor: AppColors.gray800,
+      foregroundColor: AppColors.onPrimary,
+      elevation: 0,
+      actions: [
+        IconButton(
+          onPressed: _loadSessions,
+          icon: const Icon(Icons.refresh_rounded),
+          tooltip: 'Refresh',
+          color: Colors.white,
+        ),
+        const SizedBox(width: AppSizes.sm),
+      ],
+    );
+  }
+
+  // Welcome card similar to dashboard
+  Widget _buildWelcomeCard() {
+    return Container(
+      margin: const EdgeInsets.all(AppSizes.md),
+      padding: const EdgeInsets.all(AppSizes.lg),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.gray800, AppColors.gray700],
+        ),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      body: Column(
+      child: Row(
         children: [
-          // Search Bar
           Container(
-            padding: const EdgeInsets.all(AppSizes.md),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search sessions...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          _applyFilters();
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                ),
-                filled: true,
-                fillColor: theme.colorScheme.surfaceContainerHighest,
-              ),
-              onChanged: (_) => _applyFilters(),
+            padding: const EdgeInsets.all(AppSizes.sm),
+            decoration: BoxDecoration(
+              color: AppColors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+            ),
+            child: Icon(
+              Icons.event_rounded,
+              color: AppColors.white,
+              size: AppSizes.iconMd,
             ),
           ),
-
-          // Filter Chips with counts
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
-            child: Row(
+          const SizedBox(width: AppSizes.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildFilterChip(
-                  'All',
-                  'all',
-                  _sessions.length,
+                Text(
+                  'Session Management',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                _buildFilterChip(
-                  'Live',
-                  'live',
-                  _sessions.where((s) => s.status == 'live').length,
-                ),
-                _buildFilterChip(
-                  'Upcoming',
-                  'upcoming',
-                  _sessions.where((s) => s.status == 'upcoming').length,
-                ),
-                _buildFilterChip(
-                  'Ended',
-                  'ended',
-                  _sessions.where((s) => s.status == 'ended').length,
+                const SizedBox(height: 4),
+                Text(
+                  'Manage all your sessions in one place',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.white.withOpacity(0.8),
+                  ),
                 ),
               ],
             ),
           ),
-
-          const SizedBox(height: AppSizes.md),
-
-          // Results count
-          if (_filteredSessions.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
-              child: Row(
-                children: [
-                  Text(
-                    'Showing ${_filteredSessions.length} session${_filteredSessions.length != 1 ? 's' : ''}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          const SizedBox(height: AppSizes.sm),
-
-          // Sessions List
-          Expanded(
-            child: _filteredSessions.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.event_note,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: AppSizes.md),
-                        Text(
-                          _sessions.isEmpty
-                              ? 'No sessions yet'
-                              : 'No results found',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: Colors.grey,
-                          ),
-                        ),
-                        if (_sessions.isEmpty) ...[
-                          const SizedBox(height: AppSizes.sm),
-                          Text(
-                            'Create your first session to get started',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _loadSessions,
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(AppSizes.md),
-                      itemCount: _filteredSessions.length,
-                      itemBuilder: (context, index) {
-                        return _buildSessionCard(
-                          _filteredSessions[index],
-                          theme,
-                        );
-                      },
-                    ),
-                  ),
-          ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreateSessionScreen(),
-            ),
-          );
-          if (result == true) {
-            _loadSessions();
-          }
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('New Session'),
-        backgroundColor: AppColors.primary,
       ),
     );
   }
 
-  // ⭐ UPDATED: Added count parameter
+  // Search section
+  Widget _buildSearchSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+      padding: const EdgeInsets.all(AppSizes.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(color: AppColors.gray200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search sessions by name or description...',
+          prefixIcon: Icon(Icons.search_rounded, color: AppColors.gray500),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear_rounded, color: AppColors.gray500),
+                  onPressed: () {
+                    _searchController.clear();
+                    _applyFilters();
+                  },
+                )
+              : null,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+            borderSide: BorderSide(color: AppColors.gray300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+            borderSide: BorderSide(color: AppColors.gray300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+            borderSide: BorderSide(color: AppColors.primary, width: 2),
+          ),
+          filled: true,
+          fillColor: AppColors.gray50,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.md,
+            vertical: AppSizes.sm,
+          ),
+        ),
+        onChanged: (_) => _applyFilters(),
+      ),
+    );
+  }
+
+  // Filter chips
+  Widget _buildFilterChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+      child: Row(
+        children: [
+          _buildFilterChip('All', 'all', _getStatusCount('all')),
+          _buildFilterChip('Live', 'live', _getStatusCount('live')),
+          _buildFilterChip('Upcoming', 'upcoming', _getStatusCount('upcoming')),
+          _buildFilterChip('Ended', 'ended', _getStatusCount('ended')),
+        ],
+      ),
+    );
+  }
+
+  // Individual filter chip
   Widget _buildFilterChip(String label, String value, int count) {
     final isSelected = _statusFilter == value;
     return Padding(
       padding: const EdgeInsets.only(right: AppSizes.sm),
       child: FilterChip(
-        label: Text('$label ($count)'),
+        label: Text(
+          '$label ($count)',
+          style: TextStyle(
+            color: isSelected ? AppColors.white : AppColors.gray700,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         selected: isSelected,
+        selectedColor: AppColors.gray700,
+        backgroundColor: AppColors.gray100,
+        checkmarkColor: AppColors.white,
         onSelected: (selected) {
           setState(() {
             _statusFilter = value;
@@ -276,118 +306,300 @@ class _AdminSessionsScreenState extends State<AdminSessionsScreen> {
     );
   }
 
-  Widget _buildSessionCard(SessionModel session, ThemeData theme) {
+  // Results header
+  Widget _buildResultsHeader() {
+    if (_filteredSessions.isEmpty) return const SizedBox.shrink();
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+      child: Row(
+        children: [
+          Icon(
+            Icons.list_rounded,
+            color: AppColors.gray600,
+            size: 16,
+          ),
+          const SizedBox(width: AppSizes.xs),
+          Text(
+            'Showing ${_filteredSessions.length} session${_filteredSessions.length != 1 ? 's' : ''}',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.gray600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Sessions list
+  Widget _buildSessionsList() {
+    if (_filteredSessions.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadSessions,
+      color: AppColors.primary,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(AppSizes.md),
+        itemCount: _filteredSessions.length,
+        itemBuilder: (context, index) {
+          return _buildSessionCard(_filteredSessions[index]);
+        },
+      ),
+    );
+  }
+
+  // Empty state
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSizes.xl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _sessions.isEmpty ? Icons.event_note_rounded : Icons.search_off_rounded,
+              size: 80,
+              color: AppColors.gray400,
+            ),
+            const SizedBox(height: AppSizes.lg),
+            Text(
+              _sessions.isEmpty ? 'No sessions yet' : 'No results found',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: AppColors.gray600,
+              ),
+            ),
+            const SizedBox(height: AppSizes.sm),
+            Text(
+              _sessions.isEmpty
+                  ? 'Create your first session to get started'
+                  : 'Try adjusting your search or filters',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.gray500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (_sessions.isEmpty) ...[
+              const SizedBox(height: AppSizes.xl),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CreateSessionScreen(),
+                    ),
+                  );
+                  if (result == true) _loadSessions();
+                },
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Create Session'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.lg,
+                    vertical: AppSizes.md,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Session card
+  Widget _buildSessionCard(SessionModel session) {
     final statusColor = AppHelpers.getSessionStatusColor(
       session.startDateTime,
       session.endDateTime,
     );
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: AppSizes.md),
-      elevation: 2,
-      child: InkWell(
-        onTap: () {
-          // ⭐ CHANGED: Navigate to AttendanceScreen instead
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AttendanceScreen(session: session),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSizes.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      session.name,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(color: AppColors.gray200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AttendanceScreen(session: session),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSizes.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header row
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        session.name,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.onSurface,
+                        ),
                       ),
                     ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.sm,
-                      vertical: AppSizes.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      borderRadius: BorderRadius.circular(AppSizes.radiusSm),
-                    ),
-                    child: Text(
-                      session.status.toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(width: AppSizes.sm),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSizes.sm,
+                        vertical: AppSizes.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        borderRadius: BorderRadius.circular(AppSizes.radiusXs),
+                      ),
+                      child: Text(
+                        session.status.toUpperCase(),
+                        style: TextStyle(
+                          color: AppColors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
+                  ],
+                ),
+                
+                // Description
+                if (session.description != null) ...[
+                  const SizedBox(height: AppSizes.sm),
+                  Text(
+                    session.description!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.gray600,
+                      height: 1.4,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
-              ),
-              if (session.description != null) ...[
-                const SizedBox(height: AppSizes.xs),
-                Text(
-                  session.description!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              const SizedBox(height: AppSizes.sm),
-              Row(
-                children: [
-                  Icon(Icons.calendar_today, size: 14, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    AppHelpers.formatDate(session.sessionDate),
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  const SizedBox(width: AppSizes.md),
-                  Icon(Icons.access_time, size: 14, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
+                
+                const SizedBox(height: AppSizes.md),
+                
+                // Session info row
+                Row(
+                  children: [
+                    _buildInfoItem(
+                      Icons.calendar_today_rounded,
+                      AppHelpers.formatDate(session.sessionDate),
+                    ),
+                    const SizedBox(width: AppSizes.lg),
+                    _buildInfoItem(
+                      Icons.access_time_rounded,
                       '${AppHelpers.formatTime(session.startDateTime)} - '
                       '${AppHelpers.formatTime(session.endDateTime)}',
-                      style: theme.textTheme.bodySmall,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSizes.xs),
-              Row(
-                children: [
-                  Icon(
-                    session.gpsValidationEnabled
-                        ? Icons.location_on
-                        : Icons.location_off,
-                    size: 14,
-                    color: session.gpsValidationEnabled
-                        ? AppColors.success
-                        : Colors.grey,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    session.gpsValidationEnabled
-                        ? 'GPS Enabled'
-                        : 'GPS Disabled',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+                
+                const SizedBox(height: AppSizes.sm),
+                
+                // GPS status
+                Row(
+                  children: [
+                    _buildInfoItem(
+                      session.gpsValidationEnabled
+                          ? Icons.location_on_rounded
+                          : Icons.location_off_rounded,
+                      session.gpsValidationEnabled ? 'GPS Enabled' : 'GPS Disabled',
+                      color: session.gpsValidationEnabled 
+                          ? AppColors.success 
+                          : AppColors.gray500,
+                    ),
+                    const Spacer(),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 16,
+                      color: AppColors.gray400,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  // Info item helper
+  Widget _buildInfoItem(IconData icon, String text, {Color? color}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: color ?? AppColors.gray500,
+        ),
+        const SizedBox(width: AppSizes.xs),
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: color ?? AppColors.gray600,
+              fontWeight: FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Floating Action Button
+  Widget _buildFAB() {
+    return FloatingActionButton.extended(
+      onPressed: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const CreateSessionScreen(),
+          ),
+        );
+        if (result == true) _loadSessions();
+      },
+      icon: const Icon(Icons.add_rounded),
+      label: const Text(
+        'New Session',
+        style: TextStyle(fontWeight: FontWeight.w600),
+      ),
+      backgroundColor: AppColors.gray700,
+      foregroundColor: AppColors.white,
+      elevation: 6,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
       ),
     );
   }

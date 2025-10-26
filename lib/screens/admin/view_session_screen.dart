@@ -1,4 +1,5 @@
 // lib/screens/admin/view_session_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:attendance_pro_app/services/database_service.dart';
@@ -33,21 +34,18 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
   UserModel? _currentUser;
   List<Map<String, dynamic>> _attendanceRecords = [];
   List<Map<String, dynamic>> _filteredRecords = [];
-
   bool _isLoading = true;
   bool _isDownloading = false;
 
-  // Statistics
   int _totalParticipants = 0;
   int _presentCount = 0;
   int _absentCount = 0;
   int _notMarkedCount = 0;
   double _attendancePercentage = 0.0;
 
-  // Search and filter
   final _searchController = TextEditingController();
-  String _statusFilter = 'all'; // 'all', 'present', 'absent', 'not_marked'
-  String _sortBy = 'name'; // 'name', 'user_id', 'marked_at', 'status'
+  String _statusFilter = 'all';
+  String _sortBy = 'name';
   bool _sortAscending = true;
 
   @override
@@ -64,16 +62,12 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-
     try {
       final authService = context.read<AuthService>();
-      final databaseService = context.read<DatabaseService>();
-
       final user = await authService.getCurrentUserProfile();
       if (user == null) return;
 
       await _loadAttendanceData();
-
       setState(() {
         _currentUser = user;
         _isLoading = false;
@@ -87,8 +81,6 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
   Future<void> _loadAttendanceData() async {
     try {
       final databaseService = context.read<DatabaseService>();
-
-      // Get all participants with attendance data
       final response = await databaseService.client
           .from(AppConstants.sessionParticipantsTable)
           .select('''
@@ -106,7 +98,6 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
           .eq('session_id', widget.session.id)
           .order('added_at', ascending: true);
 
-      // Get attendance records
       final attendanceResponse = await databaseService.client
           .from(AppConstants.attendanceTable)
           .select('''
@@ -123,18 +114,15 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
             distance_from_institute
           ''').eq('session_id', widget.session.id);
 
-      // Create attendance map
-      final Map<String, Map<String, dynamic>> attendanceMap = {};
+      final Map<String, dynamic> attendanceMap = {};
       for (var record in attendanceResponse as List) {
         attendanceMap[record['user_id']] = record;
       }
 
-      // Combine data
       final List<Map<String, dynamic>> combinedRecords = [];
       for (var participant in response as List<Map<String, dynamic>>) {
         final userId = participant['profiles']['id'];
         final attendance = attendanceMap[userId];
-
         combinedRecords.add({
           'participant_id': participant['id'],
           'user_id': userId,
@@ -153,14 +141,10 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
         });
       }
 
-      // Calculate statistics
       final total = combinedRecords.length;
-      final present =
-          combinedRecords.where((r) => r['status'] == 'present').length;
-      final absent =
-          combinedRecords.where((r) => r['status'] == 'absent').length;
-      final notMarked =
-          combinedRecords.where((r) => r['status'] == 'not_marked').length;
+      final present = combinedRecords.where((r) => r['status'] == 'present').length;
+      final absent = combinedRecords.where((r) => r['status'] == 'absent').length;
+      final notMarked = combinedRecords.where((r) => r['status'] == 'not_marked').length;
       final percentage = total > 0 ? (present / total * 100) : 0.0;
 
       setState(() {
@@ -176,7 +160,6 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
       AppHelpers.debugError('Load attendance data error: $e');
     }
   }
-  // Add this method to ViewSessionScreen
 
   Future<void> _showExtendSessionDialog() async {
     if (widget.session.status != 'live') {
@@ -187,16 +170,62 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Extend Session'),
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSizes.xs),
+              decoration: BoxDecoration(
+                color: AppColors.gray700.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+              ),
+              child: Icon(
+                Icons.timer_rounded,
+                color: AppColors.gray700,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: AppSizes.sm),
+            Text(
+              'Extend Session',
+              style: TextStyle(
+                color: AppColors.onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Current end time: ${AppHelpers.formatTime(widget.session.endDateTime)}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSizes.sm),
+              decoration: BoxDecoration(
+                color: AppColors.gray100,
+                borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+              ),
+              child: Text(
+                'Current end time: ${AppHelpers.formatTime(widget.session.endDateTime)}',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.gray700,
+                ),
+              ),
             ),
             const SizedBox(height: AppSizes.lg),
-            const Text('Extend session by:'),
+            Text(
+              'Extend session by:',
+              style: TextStyle(
+                color: AppColors.gray700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             const SizedBox(height: AppSizes.md),
             _buildExtensionOption(context, '15 minutes', 15),
             _buildExtensionOption(context, '30 minutes', 30),
@@ -207,6 +236,9 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.gray600,
+            ),
             child: const Text('Cancel'),
           ),
         ],
@@ -214,26 +246,30 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
     );
   }
 
-  Widget _buildExtensionOption(
-      BuildContext context, String label, int minutes) {
+  Widget _buildExtensionOption(BuildContext context, String label, int minutes) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSizes.sm),
-      child: ElevatedButton(
-        onPressed: () async {
-          Navigator.pop(context);
-
-          if (minutes == -1) {
-            // Show custom time picker
-            await _showCustomExtensionDialog();
-          } else {
-            // Extend by preset minutes
-            await _extendSession(minutes);
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 48),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () async {
+            Navigator.pop(context);
+            if (minutes == -1) {
+              await _showCustomExtensionDialog();
+            } else {
+              await _extendSession(minutes);
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.gray700,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: AppSizes.md),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+            ),
+          ),
+          child: Text(label),
         ),
-        child: Text(label),
       ),
     );
   }
@@ -244,17 +280,48 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
       builder: (context) {
         final controller = TextEditingController();
         return AlertDialog(
-          title: const Text('Custom Extension'),
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSizes.xs),
+                decoration: BoxDecoration(
+                  color: AppColors.gray700.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+                ),
+                child: Icon(
+                  Icons.edit_rounded,
+                  color: AppColors.gray700,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: AppSizes.sm),
+              Text(
+                'Custom Extension',
+                style: TextStyle(
+                  color: AppColors.onSurface,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
           content: CustomTextField(
             label: 'Minutes',
             controller: controller,
             keyboardType: TextInputType.number,
-            hint: 'Enter number of minutes',
-            prefixIcon: Icons.timer,
+            hint: 'Enter number of minutes (1-300)',
+            prefixIcon: Icons.timer_outlined,
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.gray600,
+              ),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -263,17 +330,20 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
                 if (minutes != null && minutes > 0 && minutes <= 300) {
                   Navigator.pop(context, minutes);
                 } else {
-                  AppHelpers.showErrorToast(
-                      'Please enter a valid number (1-300)');
+                  AppHelpers.showErrorToast('Please enter a valid number (1-300)');
                 }
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.gray700,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Extend'),
             ),
           ],
         );
       },
     );
-
+    
     if (customMinutes != null) {
       await _extendSession(customMinutes);
     }
@@ -282,10 +352,8 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
   Future<void> _extendSession(int minutes) async {
     try {
       final databaseService = context.read<DatabaseService>();
-
-      final newEndTime =
-          widget.session.endDateTime.add(Duration(minutes: minutes));
-
+      final newEndTime = widget.session.endDateTime.add(Duration(minutes: minutes));
+      
       await databaseService.client.from(AppConstants.sessionsTable).update({
         'end_datetime': newEndTime.toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
@@ -295,7 +363,7 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
         AppHelpers.showSuccessToast(
           'Session extended by $minutes minutes!\nNew end time: ${AppHelpers.formatTime(newEndTime)}',
         );
-        _loadData(); // Refresh data
+        _loadData();
       }
     } catch (e) {
       AppHelpers.debugError('Extend session error: $e');
@@ -307,27 +375,19 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
 
   void _applyFilters() {
     String query = _searchController.text.toLowerCase();
-
     List<Map<String, dynamic>> filtered = _attendanceRecords.where((record) {
       final user = record['user_detail'];
-
-      // Search filter
       final matchesSearch = query.isEmpty ||
           user['name'].toString().toLowerCase().contains(query) ||
           user['user_id'].toString().toLowerCase().contains(query) ||
           user['email'].toString().toLowerCase().contains(query);
-
-      // Status filter
-      final matchesStatus =
-          _statusFilter == 'all' || record['status'] == _statusFilter;
-
+      
+      final matchesStatus = _statusFilter == 'all' || record['status'] == _statusFilter;
       return matchesSearch && matchesStatus;
     }).toList();
 
-    // Apply sorting
     filtered.sort((a, b) {
       int comparison = 0;
-
       switch (_sortBy) {
         case 'name':
           comparison = a['user_detail']['name']
@@ -357,7 +417,6 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
           }
           break;
       }
-
       return _sortAscending ? comparison : -comparison;
     });
 
@@ -366,16 +425,10 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
     });
   }
 
-  // lib/screens/admin/view_session_screen.dart
-  // REPLACE _downloadReport method:
-
   Future<void> _downloadReport() async {
     setState(() => _isDownloading = true);
-
     try {
       final databaseService = context.read<DatabaseService>();
-
-      // Get detailed attendance records with admin info
       final detailedRecords = await databaseService.client
           .from(AppConstants.sessionAttendanceTable)
           .select('''
@@ -386,57 +439,42 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
           .eq('session_id', widget.session.id)
           .order('marked_at', ascending: false);
 
-      // Prepare CSV data
-      List<List<dynamic>> csvData = [
-        // ⭐ UPDATED HEADER with all required fields
+      List<List<String>> csvData = [
         [
-          'Student ID',
-          'Name',
-          'Email',
-          'Phone',
-          'Status',
-          'Marked By',
-          'Marked By Email',
-          'Location (Lat)',
-          'Location (Long)',
-          'Distance (m)',
-          'Marked At',
-          'Scan Count',
-          'Added During Session',
+          'Student ID', 'Name', 'Email', 'Phone',
+          'Status', 'Marked By', 'Marked By Email',
+          'Location (Lat)', 'Location (Long)', 'Distance (m)',
+          'Marked At', 'Scan Count', 'Added During Session'
         ],
       ];
 
-      // Data rows
       for (var record in detailedRecords) {
         final user = record['institute_master_list'];
         final markedByProfile = record['marked_by_profile'];
-        
         csvData.add([
-          user['user_id'] ?? '',                                    // Student ID
-          user['name'] ?? '',                                       // Name
-          user['email'] ?? '',                                      // Email
-          user['phone'] ?? '',                                      // Phone
-          record['status'] ?? 'not_marked',                         // Status
-          markedByProfile != null ? markedByProfile['name'] : '-',  // Marked By Name
-          markedByProfile != null ? markedByProfile['email'] : '-', // Marked By Email
-          record['gps_latitude']?.toString() ?? '-',                // Latitude
-          record['gps_longitude']?.toString() ?? '-',               // Longitude
-          record['distance_from_institute']?.toString() ?? '-',     // Distance
+          user['user_id'] ?? '',
+          user['name'] ?? '',
+          user['email'] ?? '',
+          user['phone'] ?? '',
+          record['status'] ?? 'not_marked',
+          markedByProfile != null ? markedByProfile['name'] : '-',
+          markedByProfile != null ? markedByProfile['email'] : '-',
+          record['gps_latitude']?.toString() ?? '-',
+          record['gps_longitude']?.toString() ?? '-',
+          record['distance_from_institute']?.toString() ?? '-',
           record['marked_at'] != null
               ? AppHelpers.formatDateTime(DateTime.parse(record['marked_at']))
-              : 'Not marked',                                       // Marked At
-          record['scan_count']?.toString() ?? '0',                  // Scan Count
-          record['added_during_session'] == true ? 'Yes' : 'No',   // Added During Session
+              : 'Not marked',
+          record['scan_count']?.toString() ?? '0',
+          record['added_during_session'] == true ? 'Yes' : 'No',
         ]);
       }
 
       String csv = const ListToCsvConverter().convert(csvData);
-
       final directory = await getApplicationDocumentsDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final filename = 'attendance_${widget.session.name.replaceAll(' ', '_')}_$timestamp.csv';
       final path = '${directory.path}/$filename';
-      
       final file = File(path);
       await file.writeAsString(csv);
 
@@ -444,8 +482,8 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
         [XFile(path)],
         subject: 'Attendance Report - ${widget.session.name}',
         text: 'Attendance report for ${widget.session.name}\n'
-              'Date: ${AppHelpers.formatDate(widget.session.sessionDate)}\n'
-              'Present: $_presentCount/$_totalParticipants (${_attendancePercentage.toStringAsFixed(1)}%)',
+            'Date: ${AppHelpers.formatDate(widget.session.sessionDate)}\n'
+            'Present: $_presentCount/$_totalParticipants (${_attendancePercentage.toStringAsFixed(1)}%)',
       );
 
       if (mounted) {
@@ -463,113 +501,62 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
     }
   }
 
-
-
-  // Future<void> _downloadReport() async {
-  //   setState(() => _isDownloading = true);
-
-  //   try {
-  //     // Prepare CSV data
-  //     List<List<dynamic>> csvData = [
-  //       // Header row
-  //       [
-  //         'User ID',
-  //         'Name',
-  //         'Email',
-  //         'Phone',
-  //         'Status',
-  //         'Marked At',
-  //         'Marked By',
-  //         'Scan Count',
-  //         'Added During Session',
-  //         'Distance (m)',
-  //       ],
-  //     ];
-
-  //     // Data rows
-  //     for (var record in _attendanceRecords) {
-  //       final user = record['user_detail'];
-  //       csvData.add([
-  //         user['user_id'] ?? '',
-  //         user['name'] ?? '',
-  //         user['email'] ?? '',
-  //         user['phone'] ?? '',
-  //         record['status'] ?? 'not_marked',
-  //         record['marked_at'] != null
-  //             ? AppHelpers.formatDateTime(DateTime.parse(record['marked_at']))
-  //             : 'Not marked',
-  //         record['marked_by_admin'] == true
-  //             ? 'Admin'
-  //             : record['marked_by_user'] == true
-  //                 ? 'Self'
-  //                 : '-',
-  //         record['scan_count']?.toString() ?? '0',
-  //         record['added_during_session'] == true ? 'Yes' : 'No',
-  //         record['distance_from_institute']?.toString() ?? '-',
-  //       ]);
-  //     }
-
-  //     // Convert to CSV string
-  //     String csv = const ListToCsvConverter().convert(csvData);
-
-  //     // Save to file
-  //     final directory = await getApplicationDocumentsDirectory();
-  //     final timestamp = DateTime.now().millisecondsSinceEpoch;
-  //     final filename =
-  //         'attendance_${widget.session.name.replaceAll(' ', '_')}_$timestamp.csv';
-  //     final path = '${directory.path}/$filename';
-
-  //     final file = File(path);
-  //     await file.writeAsString(csv);
-
-  //     // Share the file
-  //     await Share.shareXFiles(
-  //       [XFile(path)],
-  //       subject: 'Attendance Report - ${widget.session.name}',
-  //       text: 'Attendance report for session: ${widget.session.name}\n'
-  //           'Date: ${AppHelpers.formatDate(widget.session.sessionDate)}\n'
-  //           'Present: $_presentCount/$_totalParticipants (${_attendancePercentage.toStringAsFixed(1)}%)',
-  //     );
-
-  //     if (mounted) {
-  //       AppHelpers.showSuccessToast('Report downloaded successfully!');
-  //     }
-  //   } catch (e) {
-  //     AppHelpers.debugError('Download report error: $e');
-  //     if (mounted) {
-  //       AppHelpers.showErrorToast('Failed to download report');
-  //     }
-  //   } finally {
-  //     if (mounted) {
-  //       setState(() => _isDownloading = false);
-  //     }
-  //   }
-  // }
-
   void _showSortOptions() {
     showModalBottomSheet(
       context: context,
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppSizes.radiusLg),
+        ),
+      ),
       builder: (context) => Container(
         padding: const EdgeInsets.all(AppSizes.md),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Sort By',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSizes.xs),
+                  decoration: BoxDecoration(
+                    color: AppColors.gray700.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppSizes.radiusSm),
                   ),
+                  child: Icon(
+                    Icons.sort_rounded,
+                    color: AppColors.gray700,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: AppSizes.sm),
+                Text(
+                  'Sort Options',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: AppSizes.md),
-            _buildSortOption('Name', 'name', Icons.person),
-            _buildSortOption('User ID', 'user_id', Icons.badge),
-            _buildSortOption('Status', 'status', Icons.check_circle),
-            _buildSortOption('Marked Time', 'marked_at', Icons.access_time),
+            const SizedBox(height: AppSizes.lg),
+            _buildSortOption('Name', 'name', Icons.person_rounded),
+            _buildSortOption('User ID', 'user_id', Icons.badge_rounded),
+            _buildSortOption('Status', 'status', Icons.check_circle_rounded),
+            _buildSortOption('Marked Time', 'marked_at', Icons.access_time_rounded),
             const SizedBox(height: AppSizes.md),
             SwitchListTile(
-              title: const Text('Ascending Order'),
+              title: Text(
+                'Ascending Order',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurface,
+                ),
+              ),
               value: _sortAscending,
+              activeColor: AppColors.gray700,
               onChanged: (value) {
                 setState(() {
                   _sortAscending = value;
@@ -589,17 +576,18 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
     return ListTile(
       leading: Icon(
         icon,
-        color: isSelected ? AppColors.primary : null,
+        color: isSelected ? AppColors.gray700 : AppColors.gray500,
       ),
       title: Text(
         label,
         style: TextStyle(
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          color: isSelected ? AppColors.primary : null,
+          color: isSelected ? AppColors.gray700 : AppColors.onSurface,
         ),
       ),
-      trailing:
-          isSelected ? const Icon(Icons.check, color: AppColors.primary) : null,
+      trailing: isSelected 
+          ? Icon(Icons.check_rounded, color: AppColors.gray700) 
+          : null,
       onTap: () {
         setState(() {
           _sortBy = value;
@@ -612,8 +600,6 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (_isLoading) {
       return const Scaffold(
         body: LoadingWidget(message: 'Loading session details...'),
@@ -621,40 +607,44 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
     }
 
     return Scaffold(
-      // In ViewSessionScreen build method, update appBar actions:
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(widget.session.name),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
+        title: Text(
+          widget.session.name,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: AppColors.gray800,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          // Show edit and extend only if user has permission
-          if (widget.session.status == 'live' ||
-              widget.session.status == 'upcoming')
+          if (widget.session.status == 'live' || widget.session.status == 'upcoming')
             IconButton(
               onPressed: () async {
                 final result = await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) =>
-                        EditSessionScreen(session: widget.session),
+                    builder: (context) => EditSessionScreen(session: widget.session),
                   ),
                 );
                 if (result == true) {
-                  _loadData(); // Refresh if edited
+                  _loadData();
                 }
               },
-              icon: const Icon(Icons.edit),
+              icon: const Icon(Icons.edit, color: Colors.white),
               tooltip: 'Edit Session',
             ),
           if (widget.session.status == 'live')
             IconButton(
               onPressed: _showExtendSessionDialog,
-              icon: const Icon(Icons.timer),
+              icon: const Icon(Icons.timer, color: Colors.white),
               tooltip: 'Extend Session',
             ),
           IconButton(
             onPressed: _showSortOptions,
-            icon: const Icon(Icons.sort),
+            icon: const Icon(Icons.sort, color: Colors.white),
             tooltip: 'Sort',
           ),
           IconButton(
@@ -665,155 +655,138 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation(Colors.white),
                     ),
                   )
-                : const Icon(Icons.download),
+                : const Icon(Icons.download, color: Colors.white),
             tooltip: 'Download Report',
           ),
           IconButton(
             onPressed: _loadData,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Refresh',
           ),
+          const SizedBox(width: AppSizes.sm),
         ],
       ),
       body: Column(
         children: [
-          // Session Info Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSizes.md),
-            color: theme.colorScheme.surfaceContainerHighest,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSizes.sm,
-                        vertical: AppSizes.xs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppHelpers.getSessionStatusColor(
-                          widget.session.startDateTime,
-                          widget.session.endDateTime,
-                        ),
-                        borderRadius: BorderRadius.circular(AppSizes.radiusSm),
-                      ),
-                      child: Text(
-                        widget.session.status.toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    Icon(
-                      widget.session.gpsValidationEnabled
-                          ? Icons.location_on
-                          : Icons.location_off,
-                      size: 16,
-                      color: widget.session.gpsValidationEnabled
-                          ? AppColors.success
-                          : Colors.grey,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.session.gpsValidationEnabled
-                          ? 'GPS Enabled'
-                          : 'GPS Disabled',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSizes.sm),
-                Row(
-                  children: [
-                    Icon(Icons.calendar_today, size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(
-                      AppHelpers.formatDate(
-                        widget.session.sessionDate,
-                        format: AppFormats.dateFull,
-                      ),
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    const SizedBox(width: AppSizes.md),
-                    Icon(Icons.access_time, size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${AppHelpers.formatTime(widget.session.startDateTime)} - '
-                      '${AppHelpers.formatTime(widget.session.endDateTime)}',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          _buildSessionInfoHeader(),
+          _buildStatisticsCard(),
+          _buildSearchAndFilters(),
+          Expanded(child: _buildAttendanceList()),
+        ],
+      ),
+    );
+  }
 
-          // Statistics Cards
-          Container(
-            padding: const EdgeInsets.all(AppSizes.md),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    'Total',
-                    _totalParticipants.toString(),
-                    Icons.people,
-                    AppColors.primary,
-                    theme,
+  Widget _buildSessionInfoHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSizes.md),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.gray700, AppColors.gray700.withOpacity(0.8)],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.sm,
+                  vertical: AppSizes.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: AppHelpers.getSessionStatusColor(
+                    widget.session.startDateTime,
+                    widget.session.endDateTime,
+                  ),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+                ),
+                child: Text(
+                  widget.session.status.toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(width: AppSizes.sm),
-                Expanded(
-                  child: _buildStatCard(
-                    'Present',
-                    _presentCount.toString(),
-                    Icons.check_circle,
-                    AppColors.success,
-                    theme,
-                  ),
+              ),
+              const Spacer(),
+              Icon(
+                widget.session.gpsValidationEnabled
+                    ? Icons.location_on
+                    : Icons.location_off,
+                size: 16,
+                color: widget.session.gpsValidationEnabled
+                    ? AppColors.success
+                    : Colors.white54,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                widget.session.gpsValidationEnabled ? 'GPS Enabled' : 'GPS Disabled',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 12,
                 ),
-                const SizedBox(width: AppSizes.sm),
-                Expanded(
-                  child: _buildStatCard(
-                    'Absent',
-                    _absentCount.toString(),
-                    Icons.cancel,
-                    AppColors.error,
-                    theme,
-                  ),
-                ),
-                const SizedBox(width: AppSizes.sm),
-                Expanded(
-                  child: _buildStatCard(
-                    'Not Marked',
-                    _notMarkedCount.toString(),
-                    Icons.help_outline,
-                    Colors.grey,
-                    theme,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+          const SizedBox(height: AppSizes.sm),
+          Row(
+            children: [
+              Icon(Icons.calendar_today, size: 14, color: Colors.white54),
+              const SizedBox(width: 4),
+              Text(
+                AppHelpers.formatDate(widget.session.sessionDate),
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: AppSizes.md),
+              Icon(Icons.access_time, size: 14, color: Colors.white54),
+              const SizedBox(width: 4),
+              Text(
+                '${AppHelpers.formatTime(widget.session.startDateTime)} - '
+                '${AppHelpers.formatTime(widget.session.endDateTime)}',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-          // Attendance Percentage
+  Widget _buildStatisticsCard() {
+    return Container(
+      margin: const EdgeInsets.all(AppSizes.md),
+      padding: const EdgeInsets.all(AppSizes.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: AppSizes.md),
             padding: const EdgeInsets.all(AppSizes.md),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  AppColors.success,
-                  AppColors.success.withOpacity(0.7),
-                ],
+                colors: [AppColors.success, AppColors.success.withOpacity(0.7)],
               ),
               borderRadius: BorderRadius.circular(AppSizes.radiusMd),
             ),
@@ -828,117 +801,82 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
                 const SizedBox(width: AppSizes.sm),
                 Text(
                   'Attendance: ${_attendancePercentage.toStringAsFixed(1)}%',
-                  style: theme.textTheme.titleLarge?.copyWith(
+                  style: const TextStyle(
                     color: Colors.white,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
           ),
-
           const SizedBox(height: AppSizes.md),
-
-          // Search and Filter
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
-            child: Column(
-              children: [
-                CustomTextField(
-                  label: 'Search',
-                  controller: _searchController,
-                  prefixIcon: Icons.search,
-                  hint: 'Search by name, user ID, or email',
-                  onChanged: (_) => _applyFilters(),
-                ),
-                const SizedBox(height: AppSizes.sm),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildFilterChip('All', 'all', _totalParticipants),
-                      _buildFilterChip('Present', 'present', _presentCount),
-                      _buildFilterChip('Absent', 'absent', _absentCount),
-                      _buildFilterChip(
-                          'Not Marked', 'not_marked', _notMarkedCount),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: AppSizes.md),
-
-          // Attendance List
-          Expanded(
-            child: _filteredRecords.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.search_off,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: AppSizes.md),
-                        Text(
-                          _attendanceRecords.isEmpty
-                              ? 'No participants in this session'
-                              : 'No results found',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: AppSizes.md),
-                    itemCount: _filteredRecords.length,
-                    itemBuilder: (context, index) {
-                      return _buildAttendanceCard(
-                        _filteredRecords[index],
-                        theme,
-                      );
-                    },
-                  ),
+          Row(
+            children: [
+              _buildStatItem('Total', _totalParticipants.toString(), Icons.people, AppColors.gray700),
+              _buildStatItem('Present', _presentCount.toString(), Icons.check_circle, AppColors.success),
+              _buildStatItem('Absent', _absentCount.toString(), Icons.cancel, AppColors.error),
+              _buildStatItem('Pending', _notMarkedCount.toString(), Icons.help_outline, AppColors.warning),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-    ThemeData theme,
-  ) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSizes.sm),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: AppSizes.iconMd),
-            const SizedBox(height: AppSizes.xs),
-            Text(
-              value,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: color,
-                fontWeight: FontWeight.bold,
-              ),
+  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: AppSizes.iconMd),
+          const SizedBox(height: AppSizes.xs),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall,
-              textAlign: TextAlign.center,
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              color: AppColors.gray600,
+              fontSize: 11,
             ),
-          ],
-        ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchAndFilters() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+      child: Column(
+        children: [
+          CustomTextField(
+            label: 'Search participants',
+            controller: _searchController,
+            prefixIcon: Icons.search,
+            hint: 'Search by name, ID, or email',
+            onChanged: (_) => _applyFilters(),
+          ),
+          const SizedBox(height: AppSizes.sm),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildFilterChip('All', 'all', _totalParticipants),
+                _buildFilterChip('Present', 'present', _presentCount),
+                _buildFilterChip('Absent', 'absent', _absentCount),
+                _buildFilterChip('Not Marked', 'not_marked', _notMarkedCount),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSizes.md),
+        ],
       ),
     );
   }
@@ -948,8 +886,17 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: AppSizes.sm),
       child: FilterChip(
-        label: Text('$label ($count)'),
+        label: Text(
+          '$label ($count)',
+          style: TextStyle(
+            color: isSelected ? AppColors.white : AppColors.gray700,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         selected: isSelected,
+        selectedColor: AppColors.gray700,
+        backgroundColor: AppColors.gray100,
+        checkmarkColor: AppColors.white,
         onSelected: (selected) {
           setState(() {
             _statusFilter = value;
@@ -960,7 +907,43 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
     );
   }
 
-  Widget _buildAttendanceCard(Map<String, dynamic> record, ThemeData theme) {
+  Widget _buildAttendanceList() {
+    if (_filteredRecords.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _attendanceRecords.isEmpty ? Icons.people_outline : Icons.search_off,
+              size: 64,
+              color: AppColors.gray400,
+            ),
+            const SizedBox(height: AppSizes.md),
+            Text(
+              _attendanceRecords.isEmpty
+                  ? 'No participants in this session'
+                  : 'No results found',
+              style: TextStyle(
+                fontSize: 16,
+                color: AppColors.gray600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+      itemCount: _filteredRecords.length,
+      itemBuilder: (context, index) {
+        return _buildAttendanceCard(_filteredRecords[index]);
+      },
+    );
+  }
+
+  Widget _buildAttendanceCard(Map<String, dynamic> record) {
     final user = record['user_detail'];
     final status = record['status'] as String;
     final scanCount = record['scan_count'] as int;
@@ -969,6 +952,7 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
 
     Color statusColor;
     IconData statusIcon;
+    
     switch (status) {
       case 'present':
         statusColor = AppColors.success;
@@ -979,26 +963,43 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
         statusIcon = Icons.cancel;
         break;
       default:
-        statusColor = Colors.grey;
+        statusColor = AppColors.gray500;
         statusIcon = Icons.help_outline;
     }
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: AppSizes.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(color: AppColors.gray200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: statusColor.withValues(alpha: 0.1),
+          backgroundColor: statusColor.withOpacity(0.1),
           child: Icon(statusIcon, color: statusColor),
         ),
         title: Row(
           children: [
-            Expanded(child: Text(user['name'])),
+            Expanded(
+              child: Text(
+                user['name'],
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ),
             if (scanCount > 1)
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.warning,
                   borderRadius: BorderRadius.circular(4),
@@ -1019,7 +1020,7 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
           children: [
             Text(
               'ID: ${user['user_id']} • ${user['email']}',
-              style: theme.textTheme.bodySmall,
+              style: TextStyle(color: AppColors.gray600),
             ),
             if (addedDuringSession)
               Row(
@@ -1028,10 +1029,7 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
                   const SizedBox(width: 4),
                   Text(
                     'Added during session',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.info,
-                    ),
+                    style: TextStyle(fontSize: 11, color: AppColors.info),
                   ),
                 ],
               ),
@@ -1079,16 +1077,16 @@ class _ViewSessionScreenState extends State<ViewSessionScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w600,
-              color: Colors.grey,
+              color: AppColors.gray600,
             ),
           ),
           Text(
             value,
             style: TextStyle(
               fontWeight: FontWeight.w600,
-              color: valueColor ?? Colors.black87,
+              color: valueColor ?? AppColors.onSurface,
             ),
           ),
         ],
